@@ -1,0 +1,19 @@
+configMapGenerator:
+  - name: nginx-config
+    files:
+      - nginx.conf
+      - conf.d/default.conf
+      - conf.d/portfolio.conf
+      - h5bp/basic.conf
+      - h5bp/cross-origin/requests.conf
+      - h5bp/location/security_file_access.conf
+      - h5bp/security/content-security-policy.conf
+      - h5bp/security/cross-origin-policy.conf
+      - h5bp/security/permissions-policy.conf
+      - h5bp/security/referrer-policy.conf
+      - h5bp/security/strict-transport-security.conf
+      - h5bp/security/x-frame-options.conf
+      - snippets/cloudflare-ip-ranges.conf
+      - snippets/proxy-headers.conf
+      - snippets/rate-limit.conf
+      - snippets/resolver.conf
