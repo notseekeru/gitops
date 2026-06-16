@@ -1,5 +1,13 @@
 spec:
-  volumes:
-    - name: config-volume
-      configMap:
-        name: nginx-config
+  template:
+    spec:
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:stable-alpine
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/ # Mount the whole folder
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config
