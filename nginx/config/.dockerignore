@@ -1,4 +1,3 @@
-# Ignore Dockerfile itself (unnecessary in the image)
 Dockerfile
 .dockerignore
 .git
