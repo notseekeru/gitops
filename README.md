@@ -4,13 +4,13 @@ ArgoCD Application managing the portfolio.seekeru.tech stack on Kubernetes.
 
 ## Layout
 
-| File | Description |
-|------|-------------|
-| `app.yml` | ArgoCD Application (root) |
-| `backend.yaml` | Backend Deployment + Service (`portfolio-prod-backend:5000`) |
-| `frontend.yaml` | Frontend Deployment + Service (`portfolio-prod-frontend:8080`) |
-| `cloudflared.yaml` | Cloudflare Tunnel client |
-| `ingress.yaml` | ingress-nginx Ingress (routes, rate limits, security headers) |
+| File               | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `app.yml`          | ArgoCD Application (root)                                      |
+| `backend.yaml`     | Backend Deployment + Service (`portfolio-prod-backend:5000`)   |
+| `frontend.yaml`    | Frontend Deployment + Service (`portfolio-prod-frontend:8080`) |
+| `cloudflared.yaml` | Cloudflare Tunnel client                                       |
+| `ingress.yaml`     | ingress-nginx Ingress (routes, rate limits, security headers)  |
 
 ## Ingress
 
@@ -19,6 +19,8 @@ rate limiting and security headers — no custom nginx config needed.
 
 ```bash
 # Install ingress-nginx (one-time per cluster)
+export KUBECONFIG=~/terraform/kubeconfig
+
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
 
 # Apply this repo
