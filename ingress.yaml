@@ -18,24 +18,15 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rps: "30"
     nginx.ingress.kubernetes.io/limit-burst: "20"
 
-    # ── Security & CORS headers ─────────────────────────────────────
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      # Security headers
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';" always;
-      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-      add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
-      add_header Cross-Origin-Embedder-Policy "none" always;
-      add_header Cross-Origin-Opener-Policy "same-origin" always;
-      add_header Cross-Origin-Resource-Policy "same-origin" always;
+    # ── Safe Native Security Headers ────────────────────────────────
+    nginx.ingress.kubernetes.io/csp: "default-src 'self'; script-src 'self' https://cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://googleapis.com; img-src 'self' data:; font-src 'self' data: https://gstatic.com; connect-src 'self';"
 
-      # CORS: allow only *.seekeru.tech origins
-      if ($http_origin ~* "^https?://([^/]+\.)?seekeru\.tech$") {
-          add_header Access-Control-Allow-Origin $http_origin always;
-          add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-          add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
-      }
+    # ── Safe Native CORS ───────────────────────────────────────────
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://seekeru.tech, https://*.seekeru.tech"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+
 spec:
   ingressClassName: nginx
   rules:
