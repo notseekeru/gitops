@@ -1,4 +1,4 @@
-FROM nginx:stable-alpine
+FROM nginxinc/nginx-unprivileged:alpine-slim
 
 WORKDIR /etc/nginx
 
@@ -14,7 +14,7 @@ RUN mkdir -p /var/lib/nginx/tmp && \
 
 USER nginx
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
 
