@@ -8,6 +8,7 @@ configMapGenerator:
   - name: nginx-config
     files:
       - nginx.conf
+      - mime.types
       - conf.d/default.conf
       - conf.d/portfolio.conf
       - h5bp/basic.conf
