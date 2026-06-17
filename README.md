@@ -18,9 +18,12 @@ Routes `portfolio.seekeru.tech` to the backend and frontend services with
 rate limiting and security headers — no custom nginx config needed.
 
 ```bash
+# Point kubectl to your clusters
+echo "export KUBECONFIG=~/kubeconfig" >> ~/.bashrc && source ~/.bashrc
+
 export KUBECONFIG=~/kubeconfig
 
-# Install ingress-nginx (one-time per cluster)
+# Install ingress-nginx
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
 
 # Apply this repo
