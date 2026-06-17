@@ -1,6 +1,6 @@
 # gitops
 
-ArgoCD Application managing Kubernetes resources for portfolio.seekeru.tech.
+ArgoCD Application managing the portfolio.seekeru.tech stack on Kubernetes.
 
 ## Layout
 
@@ -10,14 +10,30 @@ ArgoCD Application managing Kubernetes resources for portfolio.seekeru.tech.
 | `backend.yaml` | Backend Deployment + Service (`portfolio-prod-backend:5000`) |
 | `frontend.yaml` | Frontend Deployment + Service (`portfolio-prod-frontend:8080`) |
 | `cloudflared.yaml` | Cloudflare Tunnel client |
-| `nginx/` | Nginx config + Kustomize |
+| `ingress.yaml` | ingress-nginx Ingress (routes, rate limits, security headers) |
 
-## Nginx
+## Ingress
+
+Routes `portfolio.seekeru.tech` to the backend and frontend services with
+rate limiting and security headers — no custom nginx config needed.
 
 ```bash
-# Apply the nginx ConfigMap + Deployment via Kustomize
-kubectl apply -k nginx/
+# Install ingress-nginx (one-time per cluster)
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
+
+# Apply this repo
+kubectl apply -f ingress.yaml -f backend.yaml -f frontend.yaml -f cloudflared.yaml
 ```
 
-The Dockerfile in `nginx/config/` builds a self-contained image with configs baked in
-(for local dev / non-K8s deployments).
+## Cloudflare real-IP
+
+After installing ingress-nginx, patch its ConfigMap so it trusts Cloudflare IPs:
+
+```bash
+kubectl patch configmap -n ingress-nginx ingress-nginx-controller \
+  --set-data 'use-forwarded-headers=true' \
+  --set-data 'forwarded-for-header=CF-Connecting-IP' \
+  --set-data 'compute-full-forwarded-for=true'
+```
+
+This replaces the old custom nginx Deployment, ConfigMap, Kustomize, and config files.
