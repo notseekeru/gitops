@@ -1,0 +1,61 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio-ingress
+  annotations:
+    # ── Security: information disclosure ────────────────────────────
+    nginx.ingress.kubernetes.io/server-tokens: "false"
+
+    # ── Security: request hardening ─────────────────────────────────
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # ── Proxy timeouts ──────────────────────────────────────────────
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+    # ── Rate limiting (per-IP) ──────────────────────────────────────
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-burst: "20"
+
+    # ── Security & CORS headers ─────────────────────────────────────
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Security headers
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+      add_header Cross-Origin-Embedder-Policy "none" always;
+      add_header Cross-Origin-Opener-Policy "same-origin" always;
+      add_header Cross-Origin-Resource-Policy "same-origin" always;
+
+      # CORS: allow only *.seekeru.tech origins
+      if ($http_origin ~* "^https?://([^/]+\.)?seekeru\.tech$") {
+          add_header Access-Control-Allow-Origin $http_origin always;
+          add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+          add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+      }
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: portfolio.seekeru.tech
+      http:
+        paths:
+          # ── API backend proxy ──────────────────────────────────────
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio-prod-backend
+                port:
+                  number: 5000
+
+          # ── Static frontend (SPA) ─────────────────────────────────
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio-prod-frontend
+                port:
+                  number: 8080
