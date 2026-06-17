@@ -20,14 +20,21 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             limits:
               memory: "128Mi"
+            requests:
+              memory: "64Mi"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: portfolio-frontend-service
+  name: portfolio-prod-frontend
 spec:
   selector:
     app: portfolio-frontend
