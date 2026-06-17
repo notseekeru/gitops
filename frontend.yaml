@@ -12,6 +12,8 @@ spec:
       labels:
         app: portfolio-frontend
     spec:
+      imagePullSecrets:
+        - name: ghcr-login
       containers:
         - name: frontend
           image: ghcr.io/notseekeru/portfolio-frontend:latest
