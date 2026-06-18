@@ -3,25 +3,19 @@ kind: Ingress
 metadata:
   name: portfolio-ingress
   annotations:
-    # ── Security: information disclosure ────────────────────────────
     nginx.ingress.kubernetes.io/server-tokens: "false"
 
-    # ── Security: request hardening ─────────────────────────────────
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 
-    # ── Proxy timeouts ──────────────────────────────────────────────
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
 
-    # ── Rate limiting (per-IP) ──────────────────────────────────────
     nginx.ingress.kubernetes.io/limit-rps: "30"
     nginx.ingress.kubernetes.io/limit-burst: "20"
 
-    # ── Safe Native Security Headers ────────────────────────────────
     nginx.ingress.kubernetes.io/csp: "default-src 'self'; script-src 'self' https://cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://googleapis.com; img-src 'self' data:; font-src 'self' data: https://gstatic.com; connect-src 'self';"
 
-    # ── Safe Native CORS ───────────────────────────────────────────
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://seekeru.tech, https://*.seekeru.tech"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
@@ -33,7 +27,6 @@ spec:
     - host: portfolio.seekeru.tech
       http:
         paths:
-          # ── API backend proxy ──────────────────────────────────────
           - path: /api
             pathType: Prefix
             backend:
@@ -42,7 +35,6 @@ spec:
                 port:
                   number: 5000
 
-          # ── Static frontend (SPA) ─────────────────────────────────
           - path: /
             pathType: Prefix
             backend:
