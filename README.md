@@ -18,10 +18,11 @@ Routes `portfolio.seekeru.tech` to the backend and frontend services with
 rate limiting and security headers — no custom nginx config needed.
 
 ```bash
-# Point kubectl to your clusters
-echo "export KUBECONFIG=~/kubeconfig" >> ~/.bashrc && source ~/.bashrc
-
+# Temporary kubeconfig for kubectl access
 export KUBECONFIG=~/kubeconfig
+
+# Or Permanently add to bashrc
+echo "export KUBECONFIG=~/kubeconfig" >> ~/.bashrc && source ~/.bashrc
 
 # Install ingress-nginx
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
@@ -30,15 +31,17 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/cont
 kubectl apply -f ingress.yaml -f backend.yaml -f frontend.yaml -f cloudflared.yaml
 ```
 
-## Cloudflare real-IP
-
-After installing ingress-nginx, patch its ConfigMap so it trusts Cloudflare IPs:
+### Secrets
 
 ```bash
-kubectl patch configmap -n ingress-nginx ingress-nginx-controller \
-  --set-data 'use-forwarded-headers=true' \
-  --set-data 'forwarded-for-header=CF-Connecting-IP' \
-  --set-data 'compute-full-forwarded-for=true'
+# Create Kubernetes secret for Cloudflare Tunnel token
+kubectl create secret generic cloudflared-token --from-literal=token=$(cat ./credentials/.cloudflare-token.txt)
+
+# Create Kubernetes secret for GitHub Container Registry (GHCR) authentication
+kubectl create secret docker-registry ghcr-login \
+         --docker-server=ghcr.io \
+         --docker-username=$(cat ./credentials/.github-username.txt) \
+         --docker-password=$(cat ./credentials/.github-pat.txt)
 ```
 
 This replaces the old custom nginx Deployment, ConfigMap, Kustomize, and config files.
