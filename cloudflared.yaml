@@ -29,9 +29,8 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
-            livenessProbe:
-              httpGet:
-                path: /metrics
-                port: 20241
-              initialDelaySeconds: 10
-              periodSeconds: 30
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
