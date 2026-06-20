@@ -30,7 +30,8 @@ spec:
               memory: "128Mi"
               cpu: "200m"
           livenessProbe:
-            tcpSocket:
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 30
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 30
+            periodSeconds: 10
