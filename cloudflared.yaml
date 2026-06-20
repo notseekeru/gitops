@@ -15,7 +15,7 @@ spec:
       containers:
         - name: tunnel
           image: cloudflare/cloudflared:latest
-          args: ["tunnel", "--protocol", "quic", "run"]
+          args: ["tunnel", "run"]
           env:
             - name: TUNNEL_TOKEN
               valueFrom:
@@ -32,6 +32,6 @@ spec:
           livenessProbe:
             httpGet:
               path: /ready
-              port: 2000
+              port: 20241
             initialDelaySeconds: 30
             periodSeconds: 10
