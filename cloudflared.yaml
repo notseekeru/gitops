@@ -15,7 +15,7 @@ spec:
       containers:
         - name: tunnel
           image: cloudflare/cloudflared:latest
-          args: ["tunnel", "run"]
+          args: ["tunnel", "--protocol", "quic", "run"]
           env:
             - name: TUNNEL_TOKEN
               valueFrom:
