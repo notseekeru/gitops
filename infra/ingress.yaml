@@ -34,7 +34,6 @@ spec:
                 name: portfolio-prod-backend
                 port:
                   number: 5000
-
           - path: /
             pathType: Prefix
             backend:
@@ -42,3 +41,21 @@ spec:
                 name: portfolio-prod-frontend
                 port:
                   number: 8080
+
+    - host: diagram.seekeru.tech
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: crud-backend
+                port:
+                  number: 4000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crud-frontend
+                port:
+                  number: 3000

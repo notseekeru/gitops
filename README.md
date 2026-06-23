@@ -1,47 +1,57 @@
 # gitops
 
-ArgoCD Application managing the portfolio.seekeru.tech stack on Kubernetes.
+ArgoCD Application managing the portfolio.seekeru.tech and diagram.seekeru.tech stack on Kubernetes.
 
 ## Layout
 
-| File               | Description                                                    |
-| ------------------ | -------------------------------------------------------------- |
-| `app.yml`          | ArgoCD Application (root)                                      |
-| `backend.yaml`     | Backend Deployment + Service (`portfolio-prod-backend:5000`)   |
-| `frontend.yaml`    | Frontend Deployment + Service (`portfolio-prod-frontend:8080`) |
-| `cloudflared.yaml` | Cloudflare Tunnel client                                       |
-| `ingress.yaml`     | ingress-nginx Ingress (routes, rate limits, security headers)  |
+```
+├── apps/
+│   ├── portfolio/          # Portfolio app (backend + frontend)
+│   └── crud/               # CRUD app — Node + React + Postgres
+├── infra/
+│   ├── ingress.yaml        # Routes for both domains
+│   ├── cloudflared.yaml    # Cloudflare Tunnel client
+│   └── db.yaml             # DO Managed Postgres ExternalName service
+├── app.yaml                # ArgoCD Application (root)
+├── kustomization.yaml      # Root Kustomize — aggregates all resources
+└── README.md
+```
 
 ## Ingress
 
-Routes `portfolio.seekeru.tech` to the backend and frontend services with
-rate limiting and security headers — no custom nginx config needed.
+| Domain                   | /api →                 | / →                     |
+| ------------------------ | ---------------------- | ----------------------- |
+| `portfolio.seekeru.tech` | portfolio-backend:5000 | portfolio-frontend:8080 |
+| `diagram.seekeru.tech`   | crud-backend:4000      | crud-frontend:3000      |
+
+## Apply
+
+ArgoCD auto-syncs from this repo. For manual apply:
 
 ```bash
-# Temporary kubeconfig for kubectl access
-export KUBECONFIG=~/kubeconfig
-
-# Or Permanently add to bashrc
-echo "export KUBECONFIG=~/kubeconfig" >> ~/.bashrc && source ~/.bashrc
-
-# Install ingress-nginx
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml
-
-# Apply this repo
-kubectl apply -f ingress.yaml -f backend.yaml -f frontend.yaml -f cloudflared.yaml
+kubectl kustomize . | kubectl apply -f -
 ```
 
-### Secrets
+Or per-app:
 
 ```bash
-# Create Kubernetes secret for Cloudflare Tunnel token
-kubectl create secret generic cloudflared-token --from-literal=token=$(cat ./credentials/.cloudflare-token.txt)
+kubectl kustomize apps/crud | kubectl apply -f -
+```
 
-# Create Kubernetes secret for GitHub Pat with read:packages scope and read access to the repo
+### Initial Secrets
+
+```bash
+# Cloudflare Tunnel
+kubectl create secret generic cloudflared-token \
+  --from-literal=token=$(cat ./credentials/.cloudflare-token.txt)
+
+# GitHub Container Registry pull secret
 kubectl create secret docker-registry ghcr-login \
-         --docker-server=ghcr.io \
-         --docker-username=$(cat ./credentials/.github-username.txt) \
-         --docker-password=$(cat ./credentials/.github-pat.txt)
-```
+  --docker-server=ghcr.io \
+  --docker-username=$(cat ./credentials/.github-username.txt) \
+  --docker-password=$(cat ./credentials/.github-pat.txt)
 
-This replaces the old custom nginx Deployment, ConfigMap, Kustomize, and config files.
+# DO Managed Postgres connection string (update host + creds)
+kubectl create secret generic db-credentials \
+  --from-literal=database-url="postgresql://user:pass@<HOST>:25060/cruddb?sslmode=require"
+```

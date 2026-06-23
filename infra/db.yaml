@@ -1,0 +1,18 @@
+# DO Managed Postgres — ExternalName service
+# Replace <YOUR_DO_DB_HOST> with your DigitalOcean DB private hostname
+# e.g., db-postgresql-nyc3-12345-do-user-abcdef-0.db.ondigitalocean.com
+#
+# Create the secret with:
+#   kubectl create secret generic db-credentials \
+#     --from-literal=database-url="postgresql://user:pass@<YOUR_DO_DB_HOST>:25060/cruddb?sslmode=require"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: do-postgres
+spec:
+  type: ExternalName
+  externalName: <YOUR_DO_DB_HOST> # ponytail: replace with actual DO DB hostname
+  ports:
+    - port: 25060
+      targetPort: 25060
