@@ -1,5 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - backend.yaml
-  - frontend.yaml
+- backend.yaml
+- frontend.yaml
+images:
+- name: ghcr.io/notseekeru/portfolio-backend
+  newName: ghcr.io/notseekeru/portfolio-backend
+  newTag: 600b6c7a7f260b7f50427402e34143b21fb120f6
+- name: ghcr.io/notseekeru/portfolio-frontend
+  newName: ghcr.io/notseekeru/portfolio-frontend
+  newTag: 600b6c7a7f260b7f50427402e34143b21fb120f6
