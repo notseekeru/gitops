@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - ingress.yaml
   - cloudflared.yaml
-  - db.yaml
