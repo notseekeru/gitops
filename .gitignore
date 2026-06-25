@@ -5,3 +5,4 @@ credentials/.cloudflare-token.txt
 credentials/.github-pat.txt
 .cloudflare-token.txt
 .github-pat.txt
+.stfolder/
