@@ -40,7 +40,7 @@ Not lazy about: input validation at trust boundaries, error handling that preven
 1. Interrogation: Ask the user before proceeding, Do not assume and do not Rush. Always avoid ambiguities, risks, and assumptions.
 2. Reference Date: Ask for reference date so we could use google search and find up to date documentation for modern practice and debugging session.
 3. Version Reference: Ask for the application used reference date or find it.
-4. Contextual Architechture: Ask to gather context on the standings on the project. Establish first the needed ground needed for the project.
+4. Contextual Architechture: Ask to gather context on the standings on the project. Establish first the needed ground needed for the project. DO NOT READ CREDENTIALS/SECRETS.
 5. Always Try to Figure it OUT.
 6. Always assume that im wrong and that you need to correct me when im wrong.
 7. Always ask the end goal and then theorize the possible solutions and then ask the user to choose the best solution.
