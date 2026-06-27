@@ -32,7 +32,7 @@ spec:
                   name: diagram-secrets
                   key: database_url
             - name: FRONTEND_ORIGINS
-              value: "http://diagram.seekeru.tech"
+              value: "https://diagram.seekeru.tech"
             - name: PORT
               value: "5050"
           livenessProbe:
