@@ -35,6 +35,8 @@ spec:
               value: "https://diagram.seekeru.tech"
             - name: PORT
               value: "5050"
+            - name: TRUST_PROXY_HOPS
+              value: "2"
           livenessProbe:
             tcpSocket:
               port: 5050
