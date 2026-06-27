@@ -49,13 +49,13 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: crud-backend
+                name: diagram-prod-backend
                 port:
-                  number: 4000
+                  number: 5050
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: crud-frontend
+                name: diagram-prod-frontend
                 port:
-                  number: 3000
+                  number: 8080
