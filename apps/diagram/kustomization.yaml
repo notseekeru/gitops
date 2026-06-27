@@ -6,7 +6,7 @@ resources:
 images:
 - name: ghcr.io/notseekeru/diagram_backend
   newName: ghcr.io/notseekeru/diagram_backend
-  newTag: bab5e40ff15883826fa530fbcb5269a543f76602
+  newTag: 8d92ab204b17f9275567c9bc09e0d1d79a57dd4d
 - name: ghcr.io/notseekeru/diagram_frontend
   newName: ghcr.io/notseekeru/diagram_frontend
-  newTag: bab5e40ff15883826fa530fbcb5269a543f76602
+  newTag: 8d92ab204b17f9275567c9bc09e0d1d79a57dd4d
