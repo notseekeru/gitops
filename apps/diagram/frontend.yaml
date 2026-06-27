@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagram-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diagram-frontend
+  template:
+    metadata:
+      labels:
+        app: diagram-frontend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: frontend
+          image: ghcr.io/notseekeru/diagram_frontend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: VITE_BACKEND_URL
+              value: "http://diagram-prod-backend:5050"
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "128Mi"
+            requests:
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: diagram-prod-frontend
+spec:
+  selector:
+    app: diagram-frontend
+  ports:
+    - port: 8080
+      targetPort: 8080

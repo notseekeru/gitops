@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagram-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diagram-backend
+  template:
+    metadata:
+      labels:
+        app: diagram-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: backend
+          image: ghcr.io/notseekeru/diagram_backend:latest
+          ports:
+            - containerPort: 5050
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: diagram-secrets
+                  key: api_key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: diagram-secrets
+                  key: database_url
+            - name: FRONTEND_ORIGINS
+              value: "http://diagram.seekeru.tech"
+            - name: PORT
+              value: "5050"
+          livenessProbe:
+            tcpSocket:
+              port: 5050
+          readinessProbe:
+            tcpSocket:
+              port: 5050
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "128Mi"
+            requests:
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: diagram-prod-backend
+spec:
+  selector:
+    app: diagram-backend
+  ports:
+    - port: 5050
+      targetPort: 5050

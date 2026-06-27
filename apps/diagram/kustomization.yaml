@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- backend.yaml
+- frontend.yaml
+images:
+- name: ghcr.io/notseekeru/diagram_backend
+  newName: ghcr.io/notseekeru/diagram_backend
+  newTag: latest
+- name: ghcr.io/notseekeru/diagram_frontend
+  newName: ghcr.io/notseekeru/diagram_frontend
+  newTag: latest
