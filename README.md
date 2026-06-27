@@ -1,44 +1,29 @@
 # gitops
 
-ArgoCD Application managing the portfolio.seekeru.tech and diagram.seekeru.tech stack on Kubernetes.
+ArgoCD Application managing the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes.
 
 ## Layout
 
 ```
 ├── apps/
-│   ├── portfolio/          # Portfolio app (backend + frontend)
-│   └── crud/               # CRUD app — Node + React + Postgres
+│   ├── portfolio/          # Portfolio app — Node backend + React frontend
+│   └── diagram/            # Diagram app   — Node backend + React frontend
 ├── infra/
-│   ├── ingress.yaml        # Routes for both domains
-│   ├── cloudflared.yaml    # Cloudflare Tunnel client
-│   └── db.yaml             # DO Managed Postgres ExternalName service
-├── app.yaml                # ArgoCD Application (root)
+│   ├── ingress.yaml        # nginx Ingress routes for both domains
+│   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
+├── app.yaml                # ArgoCD Application (root, auto-sync)
 ├── kustomization.yaml      # Root Kustomize — aggregates all resources
 └── README.md
 ```
 
 ## Ingress
 
-| Domain                   | /api →                 | / →                     |
-| ------------------------ | ---------------------- | ----------------------- |
-| `portfolio.seekeru.tech` | portfolio-backend:5000 | portfolio-frontend:8080 |
-| `diagram.seekeru.tech`   | crud-backend:4000      | crud-frontend:3000      |
+| Domain                   | /api →                       | / →                          |
+| ------------------------ | ---------------------------- | ---------------------------- |
+| `portfolio.seekeru.tech` | `portfolio-prod-backend:5000`| `portfolio-prod-frontend:8080`|
+| `diagram.seekeru.tech`   | `diagram-prod-backend:5050`  | `diagram-prod-frontend:8080` |
 
-## Apply
-
-ArgoCD auto-syncs from this repo. For manual apply:
-
-```bash
-kubectl kustomize . | kubectl apply -f -
-```
-
-Or per-app:
-
-```bash
-kubectl kustomize apps/crud | kubectl apply -f -
-```
-
-### Initial Secrets
+## Secrets
 
 ```bash
 # Cloudflare Tunnel
@@ -51,7 +36,56 @@ kubectl create secret docker-registry ghcr-login \
   --docker-username=$(cat ./credentials/.github-username.txt) \
   --docker-password=$(cat ./credentials/.github-pat.txt)
 
-# DO Managed Postgres connection string (update host + creds)
-kubectl create secret generic db-credentials \
-  --from-literal=database-url="postgresql://user:pass@<HOST>:25060/cruddb?sslmode=require"
+# Diagram app secrets (API key + database URL)
+kubectl create secret generic diagram-secrets \
+  --from-literal=api_key="<api-key>" \
+  --from-literal=database_url="postgresql://user:pass@<HOST>:25060/diagramdb?sslmode=require"
+```
+
+## Manual Apply
+
+ArgoCD auto-syncs from this repo (`.spec.syncPolicy.automated`). To apply
+outside of ArgoCD:
+
+```bash
+# Full stack
+kubectl kustomize . | kubectl apply -f -
+
+# Single app
+kubectl kustomize apps/diagram    | kubectl apply -f -
+kubectl kustomize apps/portfolio  | kubectl apply -f -
+
+# Infra only (ingress + cloudflared)
+kubectl kustomize infra           | kubectl apply -f -
+```
+
+## ArgoCD Manual Sync
+
+If auto-sync is disabled or you need to force a sync:
+
+```bash
+# Via CLI
+argocd app sync gitops
+
+# Via CLI — with prune (removes resources deleted from repo)
+argocd app sync gitops --prune
+
+# Via CLI — hard refresh (re-fetch manifests, not just diff)
+argocd app sync gitops --force
+
+# Via CLI — sync a single app (if split per-app)
+argocd app sync diagram-app
+
+# Via Web UI
+#   1. Open ArgoCD UI → Applications → gitops
+#   2. Click REFRESH  (fetches latest from repo)
+#   3. Click SYNC    (applies to cluster)
+#   4. Tick Prune if needed → SYNCHRONIZE
+```
+
+### Sync Status
+
+```bash
+argocd app get gitops               # status + health
+argocd app wait gitops --health     # block until healthy
 ```
