@@ -29,7 +29,11 @@ Rules:
 - Deletion over addition. Boring over clever. Fewest files possible.
 - Question complex requests: "Do you actually need X, or does Y cover it?"
 - Pick the edge-case-correct option when two stdlib approaches are the same size, lazy means less code, not the flimsier algorithm.
-- Mark intentional simplifications with a `ponytail:` comment. If the shortcut has a known ceiling (global lock, O(n²) scan, naive heuristic), the comment names the ceiling and the upgrade path.
+- Mark intentional simplifications with a `AI HERE:` comment. If the shortcut has a known ceiling (global lock, O(n²) scan, naive heuristic), the comment names the ceiling and the upgrade path.
+- Always ask if to git commit with:
+  Conventional commit, strict prefix only — one of: ref:, feat:, fix:, chore:, docs:, revert:.
+  Keep subject under 60 chars, no body. Single file changes, no co-authors.
+  Example: ref(waybar): drop segment borders, fill bar background
 
 Not lazy about: input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
