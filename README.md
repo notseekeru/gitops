@@ -2,6 +2,19 @@
 
 ArgoCD Application managing the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes.
 
+## Prerequisites
+
+- [Nix](https://nixos.org/download) with [flakes](https://nixos.wiki/wiki/Flakes) enabled
+- [direnv](https://direnv.net/) (optional — auto-loads the shell)
+
+```bash
+direnv allow   # loads dev shell + exports KUBECONFIG
+```
+
+The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix).
+The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig file
+(see [.gitignore](./.gitignore)).
+
 ## Layout
 
 ```
@@ -20,8 +33,8 @@ ArgoCD Application managing the `portfolio.seekeru.tech` and `diagram.seekeru.te
 
 | Domain                   | /api →                       | / →                          |
 | ------------------------ | ---------------------------- | ---------------------------- |
-| `portfolio.seekeru.tech` | `portfolio-prod-backend:5000`| `portfolio-prod-frontend:8080`|
-| `diagram.seekeru.tech`   | `diagram-prod-backend:5050`  | `diagram-prod-frontend:8080` |
+| `portfolio.seekeru.tech` | `portfolio-prod-backend:5000` | `portfolio-prod-frontend:8080` |
+| `diagram.seekeru.tech`   | `diagram-prod-backend:5050`   | `diagram-prod-frontend:8080` |
 
 ## Secrets
 
