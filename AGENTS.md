@@ -20,6 +20,7 @@ Before writing any code, stop at the first rung that holds:
 4. Does an already-installed dependency solve it? Use it.
 5. Can this be one line? Make it one line.
 6. Only then: write the minimum code that works.
+7. No Comments or Print Text unless it's something important.
 
 Rules:
 
