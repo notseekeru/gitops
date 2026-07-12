@@ -27,13 +27,6 @@ spec:
     - host: portfolio.seekeru.tech
       http:
         paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: portfolio-prod-backend
-                port:
-                  number: 5000
           - path: /
             pathType: Prefix
             backend:
