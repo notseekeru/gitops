@@ -19,22 +19,32 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 
 ```
 ├── apps/
-│   ├── portfolio/          # Portfolio app — Node backend + React frontend
+│   ├── portfolio/          # Portfolio app — React frontend (static)
 │   └── diagram/            # Diagram app   — Node backend + React frontend
 ├── infra/
-│   ├── ingress.yaml        # nginx Ingress routes for both domains
+│   ├── ingress.yaml        # nginx Ingress routes, CSP/CORS/rate-limit annotations
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
-├── app.yaml                # ArgoCD Application (root, auto-sync)
-├── kustomization.yaml      # Root Kustomize — aggregates all resources
+├── app.yaml                # ArgoCD Application (root, auto-sync, prune+selfHeal)
+├── kustomization.yaml      # Root Kustomize — aggregates apps/ + infra/
+├── flake.nix               # Nix flake for dev shell (kubectl, argocd)
+├── .envrc                  # direnv: loads flake + sets KUBECONFIG
 └── README.md
 ```
 
 ## Ingress
 
-| Domain                   | /api →                       | / →                          |
-| ------------------------ | ---------------------------- | ---------------------------- |
-| `portfolio.seekeru.tech` | `portfolio-prod-backend:5000` | `portfolio-prod-frontend:8080` |
-| `diagram.seekeru.tech`   | `diagram-prod-backend:5050`   | `diagram-prod-frontend:8080` |
+| Domain                   | /api →                       | / →                            |
+| ------------------------ | ---------------------------- | ------------------------------ |
+| `portfolio.seekeru.tech` | _(no API route)_             | `portfolio-prod-frontend:8080` |
+| `diagram.seekeru.tech`   | `diagram-prod-backend:5050`  | `diagram-prod-frontend:8080`   |
+
+### Ingress annotations
+
+- **CSP:** strict Content-Security-Policy allowing self, Cloudflare Insights, Google Fonts
+- **CORS:** allows `seekeru.tech` and `*.seekeru.tech` origins
+- **Rate limit:** 30 req/s, burst 20
+- **Proxy timeouts:** connect 10s, send 30s, read 60s
+- **Body size:** 10 MB max
 
 ## Secrets
 
@@ -46,7 +56,7 @@ kubectl create secret generic cloudflared-token \
 # GitHub Container Registry pull secret
 kubectl create secret docker-registry ghcr-login \
   --docker-server=ghcr.io \
-  --docker-username=$(cat ./credentials/.github-username.txt) \
+  --docker-username=notseekeru \
   --docker-password=$(cat ./credentials/.github-pat.txt)
 
 # Diagram app secrets (API key + database URL)
@@ -55,13 +65,22 @@ kubectl create secret generic diagram-secrets \
   --from-literal=database_url="postgresql://user:pass@<HOST>:25060/diagramdb?sslmode=require"
 ```
 
+## Image versions
+
+Image tags are pinned in each app's `kustomization.yaml`:
+
+| App         | Image                                      |
+| ----------- | ------------------------------------------ |
+| portfolio   | `ghcr.io/notseekeru/portfolio-frontend`    |
+| diagram     | `ghcr.io/notseekeru/diagram_backend`       |
+| diagram     | `ghcr.io/notseekeru/diagram_frontend`      |
+
 ## Manual Apply
 
-ArgoCD auto-syncs from this repo (`.spec.syncPolicy.automated`). To apply
-outside of ArgoCD:
+ArgoCD auto-syncs (prune + self-heal). To apply outside of ArgoCD:
 
 ```bash
-# Full stack
+# Full stack (apps + infra)
 kubectl kustomize . | kubectl apply -f -
 
 # Single app
@@ -74,31 +93,17 @@ kubectl kustomize infra           | kubectl apply -f -
 
 ## ArgoCD Manual Sync
 
-If auto-sync is disabled or you need to force a sync:
+Auto-sync (prune + self-heal) is on, but you can force:
 
 ```bash
-# Via CLI
-argocd app sync gitops
-
-# Via CLI — with prune (removes resources deleted from repo)
-argocd app sync gitops --prune
-
-# Via CLI — hard refresh (re-fetch manifests, not just diff)
-argocd app sync gitops --force
-
-# Via CLI — sync a single app (if split per-app)
-argocd app sync diagram-app
-
-# Via Web UI
-#   1. Open ArgoCD UI → Applications → gitops
-#   2. Click REFRESH  (fetches latest from repo)
-#   3. Click SYNC    (applies to cluster)
-#   4. Tick Prune if needed → SYNCHRONIZE
+argocd app sync gitops               # standard sync
+argocd app sync gitops --prune       # with prune
+argocd app sync gitops --force       # hard refresh
 ```
 
 ### Sync Status
 
 ```bash
-argocd app get gitops               # status + health
-argocd app wait gitops --health     # block until healthy
+argocd app get gitops           # status + health
+argocd app wait gitops --health # block until healthy
 ```
