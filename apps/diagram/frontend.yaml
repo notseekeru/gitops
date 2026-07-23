@@ -22,7 +22,7 @@ spec:
             - containerPort: 8080
           env:
             - name: VITE_BACKEND_URL
-              value: "http://diagram-prod-backend:5050"
+              value: "http://diagram-prod-backend:3100"
           livenessProbe:
             tcpSocket:
               port: 8080

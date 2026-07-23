@@ -44,7 +44,7 @@ spec:
               service:
                 name: diagram-prod-backend
                 port:
-                  number: 5050
+                  number: 3100
           - path: /
             pathType: Prefix
             backend:

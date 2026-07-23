@@ -19,7 +19,7 @@ spec:
         - name: backend
           image: ghcr.io/notseekeru/diagram_backend:latest
           ports:
-            - containerPort: 5050
+            - containerPort: 3100
           env:
             - name: API_KEY
               valueFrom:
@@ -34,15 +34,15 @@ spec:
             - name: FRONTEND_ORIGINS
               value: "https://diagram.seekeru.tech"
             - name: PORT
-              value: "5050"
+              value: "3100"
             - name: TRUST_PROXY_HOPS
               value: "2"
           livenessProbe:
             tcpSocket:
-              port: 5050
+              port: 3100
           readinessProbe:
             tcpSocket:
-              port: 5050
+              port: 3100
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
@@ -59,5 +59,5 @@ spec:
   selector:
     app: diagram-backend
   ports:
-    - port: 5050
-      targetPort: 5050
+    - port: 3100
+      targetPort: 3100
