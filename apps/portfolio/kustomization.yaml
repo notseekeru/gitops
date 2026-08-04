@@ -5,4 +5,4 @@ resources:
 images:
 - name: ghcr.io/notseekeru/portfolio-frontend
   newName: ghcr.io/notseekeru/portfolio-frontend
-  newTag: 1765a9dcb1e6d5a68a3b87f10f579152332f4893
+  newTag: 7a351bfef7a2d48622ee8daf784880fcfce2fb52
