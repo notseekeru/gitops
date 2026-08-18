@@ -40,7 +40,7 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 | Domain                   | /api →                      | / →                            |
 | ------------------------ | --------------------------- | ------------------------------ |
 | `portfolio.seekeru.tech` | _(no API route)_            | `portfolio-prod-frontend:8080` |
-| `diagram.seekeru.tech`   | `diagram-prod-backend:5050` | `diagram-prod-frontend:8080`   |
+| `diagram.seekeru.tech`   | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
 
 ### Ingress annotations
 
