@@ -1,6 +1,13 @@
 # gitops
 
-ArgoCD Application managing the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes.
+This repo is the GitOps source of truth for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It uses ArgoCD **App of Apps**:
+
+- `apps/` — the **workloads** (Deployments, Services) for each app.
+- `apps-of-apps/` — the **ArgoCD Application objects** telling ArgoCD which workload paths to sync.
+- `infra/` — shared cluster resources (ingress, Cloudflare tunnel).
+- `app.yaml` — the **root Application** (the parent that owns the children).
+
+**Deploy model:** push commits to `main`; ArgoCD watches this repo and each child Application syncs its own path with `prune` + `selfHeal`. You never apply workloads by hand — that fights `selfHeal`.
 
 ## Prerequisites
 
@@ -26,7 +33,8 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 │   ├── portfolio/          # Portfolio app — React frontend (static)
 │   └── diagram/            # Diagram app   — Node backend + React frontend
 ├── infra/
-│   ├── ingress.yaml        # nginx Ingress routes, CSP/CORS/rate-limit annotations
+│   ├── diagram-ingress.yaml   # nginx Ingress for diagram.seekeru.tech (/api + /)
+│   ├── portfolio-ingress.yaml # nginx Ingress for portfolio.seekeru.tech (/)
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
 ├── app.yaml                # ArgoCD root Application (AppOfApps entry)
 ├── kustomization.yaml      # Root Kustomize — aggregates Applications for manual apply
@@ -52,6 +60,8 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 
 ## Secrets
 
+All secrets are created in the `default` namespace (matches where the workloads run).
+
 ```bash
 # Cloudflare Tunnel
 kubectl create secret generic cloudflared-token \
@@ -71,63 +81,85 @@ kubectl create secret generic diagram-secrets \
 
 ## Image versions
 
-Image tags are pinned in each app's `kustomization.yaml`:
+Images are pinned to immutable digest-like SHA tags in each app's `kustomization.yaml`
+(never `latest`), which enables exact rollback. Current pins:
 
-| App       | Image                                   |
-| --------- | --------------------------------------- |
-| portfolio | `ghcr.io/notseekeru/portfolio-frontend` |
-| diagram   | `ghcr.io/notseekeru/diagram_backend`    |
-| diagram   | `ghcr.io/notseekeru/diagram_frontend`   |
+| App       | Image                                   | Tag               |
+| --------- | --------------------------------------- | ----------------- |
+| portfolio | `ghcr.io/notseekeru/portfolio-frontend` | `00fe8ae…7952e`   |
+| diagram   | `ghcr.io/notseekeru/diagram_backend`    | `3e30429…9ab6d09` |
+| diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
 
-## Manual Apply
+Bump a tag by editing `apps/<app>/kustomization.yaml` → commit → push.
 
-Applications are AppOfApps: the root app creates child Applications, and each child
-syncs its own path (apps/portfolio, apps/diagram, infra) with prune + self-heal.
+## Bootstrap / Manual Apply
+
+ArgoCD syncs are automatic, but the **first install** of this repo onto a cluster needs the
+Application objects created once:
 
 ```bash
-# Install/update the ArgoCD Application objects (children).
+# 1. Create the three child Applications (portfolio, diagram, infra).
 kubectl kustomize . | kubectl apply -f -
 
-# Workloads are created by ArgoCD when each child syncs — don't apply them
-# directly or selfHeal will fight your changes.
+# 2. Create the root (parent) Application so the children are actually owned and
+#    reconciled. This is NOT covered by kustomize — apply it directly.
+kubectl apply -f app.yaml
+
+# 3. ArgoCD reconciles from here; workloads are deployed by each child's auto-sync.
 ```
 
-## ArgoCD Manual Sync
+> Do **not** run `kubectl apply` on files under `apps/` or `infra/` directly — ArgoCD's
+> `selfHeal` will revert your changes.
 
-Auto-sync (prune + self-heal) is on, but you can force:
+## Deploy workflow (normal operation)
+
+1. Commit + push changes to `main`.
+2. ArgoCD's app controller picks up the new revision and auto-syncs each affected child
+   (auto-sync: `prune` + `selfHeal` are on for every Application, root and children).
+3. `kubectl get applications -n argocd` to observe status.
+
+You generally never need to touch ArgoCD manually. Forcing a sync outside git is only for
+recovery or poking ArgoCD's cached state.
+
+---
+
+## Forcing a sync (outside of git)
+
+Auto-sync applies every change pushed to `main`. To force a refresh/sync (e.g. ArgoCD
+lagging or manually triggered rollback):
+
+The `argocd` CLI is listed in `flake.nix` but only on PATH if the dev shell is loaded
+(`direnv allow`). It's faster to drive ArgoCD via kubectl — patch the app's operation
+annotation:
 
 ```bash
-# Root (AppOfApps) — parent of portfolio, diagram, infra
-argocd app sync gitops
-argocd app sync gitops --prune
-argocd app sync gitops --force
+# Refresh the app's view of the repo, then run a sync with prune.
+# The app name is one of: gitops (root) | portfolio | diagram | infra
+APP=gitops
+kubectl patch application $APP -n argocd --type merge -p \
+  '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+kubectl patch application $APP -n argocd --type merge -p \
+  '{"metadata":{"annotations":{"argocd.argoproj.io/operation":"{\"sync\":{\"revision\":\"HEAD\",\"prune\":true,\"dryRun\":false,\"force\":false},\"syncOperationResult\":{}}"}}}'
+```
 
-# Individual apps sync independently
-argocd app sync portfolio
+If the `argocd` CLI is available in the dev shell, the equivalent is:
+
+```bash
+argocd app sync gitops          # parent
+argocd app sync portfolio       # each child syncs independently
 argocd app sync diagram
 argocd app sync infra
 ```
 
-### Sync Status
+### Sync status
 
-The parent `gitops` app shows **`Unknown` sync / Healthy health** — this is normal for an
-AppOfApps: ArgoCD doesn't compare child `Application` objects the way it does workloads, so
-the parent is never "Synced". Track the children instead:
-
-```bash
-kubectl get applications -n argocd     # diagram | gitops | infra | portfolio
-argocd app get portfolio                   # per-app status + health (needs argocd CLI)
-```
-
-### Notes
-
-- The `argocd` CLI is listed in `flake.nix` but needs the dev shell loaded to be on PATH.
-  `direnv allow` then `argocd ...`, or drive syncs from `kubectl` (see below).
-- To trigger a sync without the CLI, patch the operation annotation:
+The parent `gitops` app reports **`Unknown` sync / `Healthy` health** — expected for
+AppOfApps: ArgoCD doesn't compare child `Application` objects the way it does workloads,
+so the parent never reads as "Synced". Judge deployment state by the children:
 
 ```bash
-kubectl patch application gitops -n argocd --type merge -p \
-  '{"metadata":{"annotations":{"argocd.argoproj.io/operation":"{\"sync\":{\"revision\":\"HEAD\",\"prune\":true,\"dryRun\":false,\"force\":false},\"syncOperationResult\":{}}"}}}'
+kubectl get applications -n argocd        # one row per app
+kubectl get deploy -n default             # actual workloads
 ```
 
 ## Known trade-offs (accepted, not fixed)
