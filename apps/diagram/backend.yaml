@@ -50,6 +50,7 @@ spec:
               memory: "128Mi"
             requests:
               memory: "64Mi"
+              cpu: "10m"
 ---
 apiVersion: v1
 kind: Service
