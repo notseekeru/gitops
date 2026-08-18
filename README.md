@@ -1,6 +1,6 @@
 # gitops
 
-This repo holds the GitOps content for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by the Terraform repo ([`../terraform`]).
+This repo holds the GitOps content for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
 
 The repo uses ArgoCD **App of Apps**:
 
@@ -13,14 +13,18 @@ The repo uses ArgoCD **App of Apps**:
 
 ## Prerequisites
 
-- [Nix](https://nixos.org/download) with [flakes](https://nixos.wiki/wiki/Flakes) enabled
-- [direnv](https://direnv.net/) (optional — auto-loads the shell)
+The only hard requirement is `kubectl` pointed at the cluster Terraform provisioned.
+The following are **optional** conveniences:
+
+- **Nix** + [flakes](https://nixos.wiki/wiki/Flakes) — optional dev shell that adds `kubectl`, `argocd`, `infisical` ([flake](./flake.nix)).
+- **direnv** — auto-loads that shell and sets `KUBECONFIG=~/kubeconfig` on `cd` (the path Terraform writes).
 
 ```bash
-direnv allow   # loads dev shell + exports KUBECONFIG
+direnv allow   # optional: dev shell + sets KUBECONFIG
 ```
 
-The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix). The `.envrc` exports `KUBECONFIG=~/kubeconfig` — the kubeconfig **written by the Terraform apply** (see the Terraform repo), so you target the cluster Terraform provisioned.
+Most operations here use `kubectl` only (see [Forcing a sync](#forcing-a-sync-outside-of-git));
+the `argocd` CLI is listed in the flake but is not required.
 
 ## Layout
 
@@ -37,7 +41,7 @@ The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix). The 
 │   ├── portfolio-ingress.yaml # nginx Ingress for portfolio.seekeru.tech (/)
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
 ├── app.yaml                # ArgoCD root Application — applied by Terraform
-├── kustomization.yaml      # Aggregates the Apps-of-Apps children (informational / local preview only)
+├── kustomization.yaml      # Aggregates the Apps-of-Apps children (for `kubectl kustomize .` preview)
 ├── flake.nix               # Nix flake for dev shell (kubectl, argocd)
 ├── .envrc                  # direnv: loads flake + sets KUBECONFIG
 └── README.md
@@ -61,11 +65,15 @@ The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix). The 
 ## Secrets
 
 All Kubernetes secrets are **created by the Terraform apply** (from Infisical values) —
-not manually. The deployments in this repo reference them by name:
+not manually. The ones consumed by workloads in this repo:
 
 - `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
 - `ghcr-login`          (`default`) — GHCR pull secret.
 - `diagram-secrets`     (`default`) — API key + PostgreSQL connection string.
+
+Terraform also creates `repo-secret` (`argocd`) — the HTTPS credentials ArgoCD
+uses to pull this git repo. It is not consumed by workloads but is required for ArgoCD
+to sync.
 
 Manage their values in Infisical and re-run `make apply MOD=k3s` (or `MOD=doks`) in the
 Terraform repo. Do **not** create them with `kubectl` — Terraform owns them.
@@ -121,9 +129,8 @@ recovery or poking ArgoCD's cached state.
 Auto-sync applies every change pushed to `main`. To force a refresh/sync (e.g. ArgoCD
 lagging or manually triggered rollback):
 
-The `argocd` CLI is listed in `flake.nix` but only on PATH if the dev shell is loaded
-(`direnv allow`). It's faster to drive ArgoCD via kubectl — patch the app's operation
-annotation:
+Drive ArgoCD entirely with `kubectl` — patch the app's operation annotation (no `argocd`
+CLI needed):
 
 ```bash
 # Refresh the app's view of the repo, then run a sync with prune.
@@ -135,14 +142,6 @@ kubectl patch application $APP -n argocd --type merge -p \
   '{"metadata":{"annotations":{"argocd.argoproj.io/operation":"{\"sync\":{\"revision\":\"HEAD\",\"prune\":true,\"dryRun\":false,\"force\":false},\"syncOperationResult\":{}}"}}}'
 ```
 
-If the `argocd` CLI is available in the dev shell, the equivalent is:
-
-```bash
-argocd app sync gitops          # parent
-argocd app sync portfolio       # each child syncs independently
-argocd app sync diagram
-argocd app sync infra
-```
 
 ### Sync status
 
