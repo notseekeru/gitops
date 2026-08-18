@@ -1,13 +1,15 @@
 # gitops
 
-This repo is the GitOps source of truth for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It uses ArgoCD **App of Apps**:
+This repo holds the GitOps content for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by the Terraform repo ([`../terraform`]).
 
-- `apps/` — the **workloads** (Deployments, Services) for each app.
-- `apps-of-apps/` — the **ArgoCD Application objects** telling ArgoCD which workload paths to sync.
-- `infra/` — shared cluster resources (ingress, Cloudflare tunnel).
-- `app.yaml` — the **root Application** (the parent that owns the children).
+The repo uses ArgoCD **App of Apps**:
 
-**Deploy model:** push commits to `main`; ArgoCD watches this repo and each child Application syncs its own path with `prune` + `selfHeal`. You never apply workloads by hand — that fights `selfHeal`.
+- `apps-of-apps/`  — the **ArgoCD Application objects** (children) telling ArgoCD which workload paths to sync.
+- `apps/`          — the **workloads** (Deployments, Services) for each app.
+- `infra/`         — shared cluster resources (ingress, Cloudflare tunnel).
+- `app.yaml`       — the **root Application** (parent). Applied by Terraform, not by hand.
+
+**Deploy model:** push commits to `main`; ArgoCD watches this repo and each child Application syncs its own path with `prune` + `selfHeal`. Never apply workloads by hand — that fights `selfHeal`.
 
 ## Prerequisites
 
@@ -18,9 +20,7 @@ This repo is the GitOps source of truth for the `portfolio.seekeru.tech` and `di
 direnv allow   # loads dev shell + exports KUBECONFIG
 ```
 
-The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix).
-The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig file
-(see [.gitignore](./.gitignore)).
+The dev shell installs `kubectl` and `argocd` via the [flake](./flake.nix). The `.envrc` exports `KUBECONFIG=~/kubeconfig` — the kubeconfig **written by the Terraform apply** (see the Terraform repo), so you target the cluster Terraform provisioned.
 
 ## Layout
 
@@ -36,8 +36,8 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 │   ├── diagram-ingress.yaml   # nginx Ingress for diagram.seekeru.tech (/api + /)
 │   ├── portfolio-ingress.yaml # nginx Ingress for portfolio.seekeru.tech (/)
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
-├── app.yaml                # ArgoCD root Application (AppOfApps entry)
-├── kustomization.yaml      # Root Kustomize — aggregates Applications for manual apply
+├── app.yaml                # ArgoCD root Application — applied by Terraform
+├── kustomization.yaml      # Aggregates the Apps-of-Apps children (informational / local preview only)
 ├── flake.nix               # Nix flake for dev shell (kubectl, argocd)
 ├── .envrc                  # direnv: loads flake + sets KUBECONFIG
 └── README.md
@@ -60,24 +60,15 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 
 ## Secrets
 
-All secrets are created in the `default` namespace (matches where the workloads run).
+All Kubernetes secrets are **created by the Terraform apply** (from Infisical values) —
+not manually. The deployments in this repo reference them by name:
 
-```bash
-# Cloudflare Tunnel
-kubectl create secret generic cloudflared-token \
-  --from-literal=token=$(cat ./credentials/.cloudflare-token.txt)
+- `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
+- `ghcr-login`          (`default`) — GHCR pull secret.
+- `diagram-secrets`     (`default`) — API key + PostgreSQL connection string.
 
-# GitHub Container Registry pull secret
-kubectl create secret docker-registry ghcr-login \
-  --docker-server=ghcr.io \
-  --docker-username=notseekeru \
-  --docker-password=$(cat ./credentials/.github-pat.txt)
-
-# Diagram app secrets (API key + database URL)
-kubectl create secret generic diagram-secrets \
-  --from-literal=api_key="<api-key>" \
-  --from-literal=database_url="postgresql://user:pass@<HOST>:25060/diagramdb?sslmode=require"
-```
+Manage their values in Infisical and re-run `make apply MOD=k3s` (or `MOD=doks`) in the
+Terraform repo. Do **not** create them with `kubectl` — Terraform owns them.
 
 ## Image versions
 
@@ -92,24 +83,22 @@ Images are pinned to immutable digest-like SHA tags in each app's `kustomization
 
 Bump a tag by editing `apps/<app>/kustomization.yaml` → commit → push.
 
-## Bootstrap / Manual Apply
+## How this repo gets applied
 
-ArgoCD syncs are automatic, but the **first install** of this repo onto a cluster needs the
-Application objects created once:
+This repo is **not** applied by hand. The Terraform repo is the installer:
 
-```bash
-# 1. Create the three child Applications (portfolio, diagram, infra).
-kubectl kustomize . | kubectl apply -f -
+1. Terraform installs ArgoCD (Helm chart), creates the Kubernetes secrets, then applies
+   `app.yaml` — the root Application — via the `kubectl` provider (`kubectl_manifest`,
+   path default `${path.module}/../../../gitops/app.yaml`).
+2. That root Application (App of Apps) creates the children in `apps-of-apps/`, each of
+   which auto-syncs its own workload path (`apps/`, `infra/`) with `prune` + `selfHeal`.
 
-# 2. Create the root (parent) Application so the children are actually owned and
-#    reconciled. This is NOT covered by kustomize — apply it directly.
-kubectl apply -f app.yaml
+So a fresh cluster is bootstrapped entirely by `make apply MOD=k3s` (or `MOD=doks`) in
+the Terraform repo. This repo's only job is to hold the YAML ArgoCD syncs.
 
-# 3. ArgoCD reconciles from here; workloads are deployed by each child's auto-sync.
-```
-
-> Do **not** run `kubectl apply` on files under `apps/` or `infra/` directly — ArgoCD's
-> `selfHeal` will revert your changes.
+> **Never** `kubectl apply` `app.yaml`, the secrets, or files under `apps/`/`infra/` directly —
+> Terraform owns the root app and secrets; ArgoCD `selfHeal` owns the workload manifests. Either
+> would fight the other and reconcile your changes away.
 
 ## Deploy workflow (normal operation)
 
