@@ -1,13 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: gitops
+  name: infra
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/notseekeru/gitops.git
-    path: applications
+    path: infra
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
