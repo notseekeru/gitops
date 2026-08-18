@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: diagram-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/server-tokens: "false"
+
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-burst: "20"
+
+    nginx.ingress.kubernetes.io/csp: "default-src 'self'; script-src 'self' https://cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://googleapis.com; img-src 'self' data:; font-src 'self' data: https://gstatic.com; connect-src 'self';"
+
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://seekeru.tech, https://*.seekeru.tech"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: diagram.seekeru.tech
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: diagram-prod-backend
+                port:
+                  number: 3100
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: diagram-prod-frontend
+                port:
+                  number: 8080
