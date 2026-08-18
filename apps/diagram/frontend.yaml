@@ -20,9 +20,6 @@ spec:
           image: ghcr.io/notseekeru/diagram_frontend:latest
           ports:
             - containerPort: 8080
-          env:
-            - name: VITE_BACKEND_URL
-              value: "http://diagram-prod-backend:3100"
           livenessProbe:
             tcpSocket:
               port: 8080
