@@ -72,8 +72,8 @@ Terraform repo. Do **not** create them with `kubectl` — Terraform owns them.
 
 ## Image versions
 
-Images are pinned to immutable digest-like SHA tags in each app's `kustomization.yaml`
-(never `latest`), which enables exact rollback. Current pins:
+Images are pinned to immutable SHA tags in each app's `kustomization.yaml` (never `latest`),
+which enables exact rollback. As of writing:
 
 | App       | Image                                   | Tag               |
 | --------- | --------------------------------------- | ----------------- |
@@ -81,7 +81,13 @@ Images are pinned to immutable digest-like SHA tags in each app's `kustomization
 | diagram   | `ghcr.io/notseekeru/diagram_backend`    | `3e30429…9ab6d09` |
 | diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
 
-Bump a tag by editing `apps/<app>/kustomization.yaml` → commit → push.
+**Portfolio tags auto-update:** the CD pipeline (CI → `workflow_run` on `main`) builds
+`portfolio-frontend`, then a job `kustomize edit set image`s the new SHA into
+`apps/portfolio/kustomization.yaml` and pushes it. So `apps/portfolio` deploys itself —
+this table drifts on every release; read the live SHA from the file.
+
+**Diagram tags are bumped manually** (no CD): edit `apps/diagram/kustomization.yaml` →
+commit → push.
 
 ## How this repo gets applied
 
@@ -102,7 +108,8 @@ the Terraform repo. This repo's only job is to hold the YAML ArgoCD syncs.
 
 ## Deploy workflow (normal operation)
 
-1. Commit + push changes to `main`.
+1. Push changes to `main` — either a code PR that triggers the CD pipeline, or a direct edit
+   to a manifest/kustomization.
 2. ArgoCD's app controller picks up the new revision and auto-syncs each affected child
    (auto-sync: `prune` + `selfHeal` are on for every Application, root and children).
 3. `kubectl get applications -n argocd` to observe status.
