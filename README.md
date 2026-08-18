@@ -81,13 +81,10 @@ which enables exact rollback. As of writing:
 | diagram   | `ghcr.io/notseekeru/diagram_backend`    | `3e30429…9ab6d09` |
 | diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
 
-**Portfolio tags auto-update:** the CD pipeline (CI → `workflow_run` on `main`) builds
-`portfolio-frontend`, then a job `kustomize edit set image`s the new SHA into
-`apps/portfolio/kustomization.yaml` and pushes it. So `apps/portfolio` deploys itself —
-this table drifts on every release; read the live SHA from the file.
-
-**Diagram tags are bumped manually** (no CD): edit `apps/diagram/kustomization.yaml` →
-commit → push.
+**All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`). For each
+service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on
+the owning `apps/<app>/kustomization.yaml` and pushes the SHA bump. So deployments self
+package — this table drifts on every release; read the live SHAs from the files.
 
 ## How this repo gets applied
 
