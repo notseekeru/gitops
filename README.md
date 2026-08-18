@@ -18,7 +18,7 @@ The `.envrc` also exports `KUBECONFIG=$(pwd)/kubeconfig` — a local kubeconfig 
 ## Layout
 
 ```
-├── applications/
+├── apps-of-apps/
 │   ├── portfolio.yaml      # ArgoCD App → apps/portfolio
 │   ├── diagram.yaml        # ArgoCD App → apps/diagram
 │   └── infra.yaml          # ArgoCD App → infra
