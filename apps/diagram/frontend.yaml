@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: diagram-frontend
 spec:
-  revisionHistoryLimit: 1
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
