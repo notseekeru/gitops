@@ -29,7 +29,7 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 
 - **Commit when justifiable:** Commit proactively when file changes form a justifiable logical unit, per the Commit Policy above.
 - **Data Safety:** Never execute commands that risk uncommitted or unstaged data without explicit user confirmation.
-- **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, provide the command for the user to run.
+- **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS UNTIL EXPLICITLY STATED.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, ALWAYS ask the user.
 
 ## Interaction Style
 
