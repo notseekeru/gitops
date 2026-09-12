@@ -27,11 +27,14 @@ spec:
               value: production
             - name: CLERK_ENABLED
               value: "true"
-            # Stripe success/cancel + billing-portal return URLs.
+            # PayMongo first-payment return URL (app/payments.py).
             - name: FRONTEND_BASE_URL
               value: "https://maxterview.seekeru.tech"
           # Whole-secret injection. Keys MUST be UPPERCASE and named exactly as the env vars the app
-          # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*, STRIPE_*.
+          # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*,
+          # BYOK_ENCRYPTION_KEY (per-owner provider keys, see maxterview_website/BYOK.md).
+          # Billing keys are mid-swap: the app reads PAYMONGO_* while Terraform still emits empty
+          # STRIPE_* — fix in Terraform before expecting /api/billing/* to work in prod.
           # AI HERE: envFrom is all-or-nothing — one malformed key blocks the pod; per-key valueFrom
           # is the precise-but-verbose fallback if that ever bites.
           envFrom:
