@@ -1,6 +1,6 @@
 # gitops
 
-This repo holds the GitOps content for the `portfolio.seekeru.tech` and `diagram.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
+This repo holds the GitOps content for the `portfolio.seekeru.tech`, `diagram.seekeru.tech` and `maxterview.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
 
 The repo uses ArgoCD **App of Apps**:
 
@@ -32,12 +32,15 @@ the `argocd` CLI is listed in the flake but is not required.
 ├── apps-of-apps/
 │   ├── portfolio.yaml      # ArgoCD App → apps/portfolio
 │   ├── diagram.yaml        # ArgoCD App → apps/diagram
+│   ├── maxterview.yaml     # ArgoCD App → apps/maxterview
 │   └── infra.yaml          # ArgoCD App → infra
 ├── apps/
 │   ├── portfolio/          # Portfolio app — React frontend (static)
-│   └── diagram/            # Diagram app   — Node backend + React frontend
+│   ├── diagram/            # Diagram app   — Node backend + React frontend
+│   └── maxterview/         # Maxterview    — FastAPI backend + React frontend
 ├── infra/
 │   ├── diagram-ingress.yaml   # nginx Ingress for diagram.seekeru.tech (/api + /)
+│   ├── maxterview-ingress.yaml # nginx Ingress for maxterview.seekeru.tech (/api + /)
 │   ├── portfolio-ingress.yaml # nginx Ingress for portfolio.seekeru.tech (/)
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
 ├── app.yaml                # ArgoCD root Application — applied by Terraform
@@ -53,6 +56,7 @@ the `argocd` CLI is listed in the flake but is not required.
 | ------------------------ | --------------------------- | ------------------------------ |
 | `portfolio.seekeru.tech` | _(no API route)_            | `portfolio-prod-frontend:8080` |
 | `diagram.seekeru.tech`   | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
+| `maxterview.seekeru.tech`| `maxterview-prod-backend:8000` | `maxterview-prod-frontend:8080` |
 
 ### Ingress annotations
 
@@ -70,6 +74,9 @@ not manually. The ones consumed by workloads in this repo:
 - `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
 - `ghcr-login`          (`default`) — GHCR pull secret.
 - `diagram-secrets`     (`default`) — API key + PostgreSQL connection string.
+- `maxterview-secrets`  (`default`) — Neon `DATABASE_URL` + Clerk/LLM/Stripe keys, injected wholesale
+  with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`, …)
+  or the backend pod will not schedule. Not yet created (Terraform/Infisical side).
 
 Terraform also creates `repo-secret` (`argocd`) — the HTTPS credentials ArgoCD
 uses to pull this git repo. It is not consumed by workloads but is required for ArgoCD
@@ -88,6 +95,8 @@ which enables exact rollback. As of writing:
 | portfolio | `ghcr.io/notseekeru/portfolio-frontend` | `00fe8ae…7952e`   |
 | diagram   | `ghcr.io/notseekeru/diagram_backend`    | `3e30429…9ab6d09` |
 | diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
+| maxterview| `ghcr.io/notseekeru/maxterview_backend` | `a0011c6…52959`   |
+| maxterview| `ghcr.io/notseekeru/maxterview_frontend`| `a0011c6…52959`   |
 
 **All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`). For each
 service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on

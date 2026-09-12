@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxterview-backend
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxterview-backend
+  template:
+    metadata:
+      labels:
+        app: maxterview-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: backend
+          image: ghcr.io/notseekeru/maxterview_backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            # production refuses to boot unless CLERK_ENABLED=true (main.py guard).
+            - name: APP_ENV
+              value: production
+            - name: CLERK_ENABLED
+              value: "true"
+            # Stripe success/cancel + billing-portal return URLs.
+            - name: FRONTEND_BASE_URL
+              value: "https://maxterview.seekeru.tech"
+          # Whole-secret injection. Keys MUST be UPPERCASE and named exactly as the env vars the app
+          # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*, STRIPE_*.
+          # AI HERE: envFrom is all-or-nothing — one malformed key blocks the pod; per-key valueFrom
+          # is the precise-but-verbose fallback if that ever bites.
+          envFrom:
+            - secretRef:
+                name: maxterview-secrets
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+          readinessProbe:
+            # AI HERE: /api/health is shallow (no DB check) — a real readiness probe lands with M13.
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "256Mi"
+            requests:
+              memory: "128Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maxterview-prod-backend
+spec:
+  selector:
+    app: maxterview-backend
+  ports:
+    - port: 8000
+      targetPort: 8000

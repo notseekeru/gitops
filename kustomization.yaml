@@ -4,3 +4,4 @@ resources:
   - apps-of-apps/infra.yaml
   - apps-of-apps/portfolio.yaml
   - apps-of-apps/diagram.yaml
+  - apps-of-apps/maxterview.yaml

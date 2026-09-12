@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: maxterview-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/server-tokens: "false"
+
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # LLM turns + the SSE chat stream are long-lived; 300s matches the app's own nginx proxy_read_timeout.
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-burst: "20"
+
+    nginx.ingress.kubernetes.io/csp: "default-src 'self'; script-src 'self' https://cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://googleapis.com; img-src 'self' data:; font-src 'self' data: https://gstatic.com; connect-src 'self';"
+
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://seekeru.tech, https://*.seekeru.tech"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: maxterview.seekeru.tech
+      http:
+        paths:
+          # The app serves its routes under /api itself (API_PREFIX) — no rewrite here.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: maxterview-prod-backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: maxterview-prod-frontend
+                port:
+                  number: 8080

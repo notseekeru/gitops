@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxterview-frontend
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxterview-frontend
+  template:
+    metadata:
+      labels:
+        app: maxterview-frontend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: frontend
+          image: ghcr.io/notseekeru/maxterview_frontend:latest
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: "128Mi"
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maxterview-prod-frontend
+spec:
+  selector:
+    app: maxterview-frontend
+  ports:
+    - port: 8080
+      targetPort: 8080
