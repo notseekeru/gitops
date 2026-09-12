@@ -8,7 +8,7 @@ resources:
 images:
 - name: ghcr.io/notseekeru/maxterview_backend
   newName: ghcr.io/notseekeru/maxterview_backend
-  newTag: a0011c6c5370eccd357a0e87d99f71cf45952959
+  newTag: ccfa2cc67d50d662f0c737ebcaa7b43e218a221c
 - name: ghcr.io/notseekeru/maxterview_frontend
   newName: ghcr.io/notseekeru/maxterview_frontend
-  newTag: a0011c6c5370eccd357a0e87d99f71cf45952959
+  newTag: ccfa2cc67d50d662f0c737ebcaa7b43e218a221c
