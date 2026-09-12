@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: maxterview-migrate
+  namespace: maxterview
+  annotations:
+    # PreSync: the schema lands BEFORE the new pods roll, so a code/schema mismatch never
+    # serves traffic. Deleted before the next sync (not on success) so the last run's logs
+    # survive for debugging; a failed hook fails the whole sync.
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: maxterview-migrate
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-login
+      containers:
+        - name: migrate
+          # Same image as the app (the kustomize `images:` transformer retags this too), so the
+          # migrations shipped in it always match the code being deployed.
+          image: ghcr.io/notseekeru/maxterview_backend:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              # D12: MIGRATE_DATABASE_URL is the migrate-role DSN; empty (the v1 default) falls
+              # back to DATABASE_URL, i.e. the owner role. Never run this from a laptop.
+              DSN="${MIGRATE_DATABASE_URL:-${DATABASE_URL:-}}"
+              if [ -z "$DSN" ]; then
+                echo "FATAL: neither MIGRATE_DATABASE_URL nor DATABASE_URL is set in maxterview-secrets" >&2
+                exit 1
+              fi
+              echo "applying migrations to ${DSN%%@*}@<redacted>"
+              # Direct venv binary (same style as the prod CMD) — no `uv run` env verification in-cluster.
+              exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
+          envFrom:
+            - secretRef:
+                name: maxterview-secrets
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "256Mi"

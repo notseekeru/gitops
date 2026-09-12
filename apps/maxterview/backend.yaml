@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: maxterview-backend
+  namespace: maxterview
 spec:
   revisionHistoryLimit: 2
   replicas: 1
@@ -58,6 +59,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: maxterview-prod-backend
+  namespace: maxterview
 spec:
   selector:
     app: maxterview-backend
