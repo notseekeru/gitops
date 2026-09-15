@@ -148,10 +148,31 @@ resources:
 images: ...
 ```
 
-Killing a whole app means commenting out all of its entries; comment one entry to drop a
-single workload. This works because kustomize renders a partial or empty resource list
-without error (verified: empty output, exit 0), and `prune` deletes whatever leaves the
-desired state.
+Comment one entry to drop a single workload. Commenting out **every** entry kills the whole
+app — but that needs one extra step, because the desired state is then empty and ArgoCD's
+auto-sync refuses to act on it (see below).
+
+### Killing a whole app needs one explicit sync
+
+With every entry commented out, auto-sync skips the app and **nothing is pruned**. The
+Application reports this in its conditions:
+
+```
+Skipping sync attempt to <rev>: auto-sync will wipe out all resources
+```
+
+That guard exists so a commit that renders nothing can't silently delete a workload. So the
+kill is two steps and the restore is one:
+
+```bash
+# kill:   comment out all entries, commit, push, then one explicit sync
+kubectl patch application <app> -n argocd --type merge -p \
+  '{"operation":{"sync":{"revision":"HEAD","prune":true}}}'
+
+# restore: uncomment, commit, push — auto-sync handles it (render is non-empty again)
+```
+
+Partial kills (any entry left uncommented) never hit the guard and stay single-step.
 
 **Commenting entries out of the root `kustomization.yaml` does nothing.** That file is a
 preview-only aggregator for `kubectl kustomize .`; `app.yaml` syncs the `apps-of-apps`
@@ -160,7 +181,8 @@ directory, not that kustomization. Only `apps/<app>/kustomization.yaml` counts.
 A kill survives releases: the CD pipeline runs `kustomize edit set image` on exactly this
 file, and it does not re-enable commented entries (verified against kustomize 5.8.1). It does
 hoist them — on the next release, commented entries collect under the marker comment at the
-top of the file. Expect that reflow.
+top of the file. Expect that reflow. A fully dark app stays dark through image bumps too: with
+no resources left there is nothing for a new revision to change.
 
 Caveats:
 
