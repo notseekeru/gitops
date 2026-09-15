@@ -132,6 +132,55 @@ the Terraform repo. This repo's only job is to hold the YAML ArgoCD syncs.
 
 You generally never need to touch ArgoCD manually. Forcing a sync outside git is only for
 recovery or poking ArgoCD's cached state.
+
+## Kill switch (per app)
+
+Each app's switch is its `resources:` list in `apps/<app>/kustomization.yaml`. Comment an
+entry out, commit, and ArgoCD prunes it (`prune: true`); uncomment to bring it back:
+
+```yaml
+# Kill switch: comment an entry out to prune it (see README).
+#- migration-job.yaml
+resources:
+- backend.yaml
+- frontend.yaml
+- maxterview-ingress.yaml
+images: ...
+```
+
+Killing a whole app means commenting out all of its entries; comment one entry to drop a
+single workload. This works because kustomize renders a partial or empty resource list
+without error (verified: empty output, exit 0), and `prune` deletes whatever leaves the
+desired state.
+
+**Commenting entries out of the root `kustomization.yaml` does nothing.** That file is a
+preview-only aggregator for `kubectl kustomize .`; `app.yaml` syncs the `apps-of-apps`
+directory, not that kustomization. Only `apps/<app>/kustomization.yaml` counts.
+
+A kill survives releases: the CD pipeline runs `kustomize edit set image` on exactly this
+file, and it does not re-enable commented entries (verified against kustomize 5.8.1). It does
+hoist them — on the next release, commented entries collect under the marker comment at the
+top of the file. Expect that reflow.
+
+Caveats:
+
+- **A dark app reports `Healthy` in ArgoCD.** With its entries pruned the Application has
+  nothing left to assess and stays green, so the switch has no visible state. Kill an app and
+  forget, and nothing will tell you.
+- **maxterview's kill still migrates Neon unless you also comment out `migration-job.yaml`.**
+  It is a `PreSync` hook and hooks run on every sync, so the kill sync migrates the database
+  first — and a failing hook fails the whole sync, meaning the kill never applies and the app
+  stays up. Comment the hook out too for a clean kill, and restore it in the same commit as
+  the pods so PreSync migrates before they roll.
+- **Off means deleted, not scaled.** The Deployment, Service and (where applicable) Ingress are
+  pruned: a dark app is absent from `kubectl get deploy`, indistinguishable at a glance from a
+  botched delete, and a restore is a cold start — objects recreated, images pulled.
+- **A dark app serves 404/503**, not a maintenance page: prune everything and the host no
+  longer matches an ingress rule; prune only the backends and nginx has no endpoints.
+
+Propagation is two hops — root app → child app → workloads — so allow a poll interval or two:
+seconds if a git webhook is configured, otherwise up to ~6 min at the 3 min default poll.
+
 ---
 
 ## Port-Forward
