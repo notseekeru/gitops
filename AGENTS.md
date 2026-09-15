@@ -14,7 +14,7 @@ The best code is the code never written. Efficiency is paramount.
 4. **Minimalism:** No unrequested abstractions, no boilerplate. Deletion over addition.
 5. **Validation:** For non-trivial logic, include exactly one framework-free self-check or assertion.
 6. **Intentionality:** Mark simplifications with `AI HERE:` comments, noting the ceiling and upgrade path.
-7. **Context Optimization:** Do not pollute/bloat context for another agent. Prioritize trimming/removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. But if it improves clarify for user and agent, then keep it.
+7. **Context Optimization:** Do not pollute/bloat context for another agent. Prioritize trimming/removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value.
 
 ## Commit Policy (Atomic + Amend)
 
