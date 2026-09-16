@@ -74,11 +74,10 @@ not manually. The ones consumed by workloads in this repo:
 - `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
 - `ghcr-login`          (`default`) — GHCR pull secret.
 - `diagram-secrets`     (`default`) — API key + PostgreSQL connection string.
-- `maxterview-secrets`  (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK keys, injected wholesale
+- `maxterview-secrets`  (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
   with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
-  `BYOK_ENCRYPTION_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
-  (commit `6727cf8`); billing keys are mid-swap there (app reads `PAYMONGO_*`, Terraform still emits
-  empty `STRIPE_*`).
+  `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
+  (commit `6727cf8`); `PAYMONGO_*` stays empty until its Infisical values are set.
 
 Terraform also creates `repo-secret` (`argocd`) — the HTTPS credentials ArgoCD
 uses to pull this git repo. It is not consumed by workloads but is required for ArgoCD
