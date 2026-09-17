@@ -15,7 +15,7 @@ The best code is the code never written. Efficiency is paramount.
 5. **Validation:** For non-trivial logic, include exactly one framework-free self-check or assertion.
 6. **Redundant:** Do not run redundant test, checkups unless needed. Remove duplicant and redundant statements.
 7. **Intentionality:** Mark simplifications with `AI HERE:` comments, noting the ceiling and upgrade path.
-8. **Context Optimization:** Do not pollute/bloat context for another agent. Prioritize trimming/removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value.
+8. **Context Optimization:** Do not pollute/bloat context for another agent. Prioritize trimming/removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. DO NOT ADD IT IF IT IS UN MAINTAINABLE
 
 ## Commit Policy (Atomic + Amend)
 
@@ -32,6 +32,7 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 - **Commit when justifiable:** Commit proactively when file changes form a justifiable logical unit, per the Commit Policy above.
 - **Data Safety:** Never execute commands that risk uncommitted or unstaged data without explicit user confirmation.
 - **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS UNTIL EXPLICITLY STATED.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, ALWAYS ask the user.
+- **Documentation Optimization:** Do not write useless comments/docs. Prioritize removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. DO NOT WRITE IT IF YOU THINK IT IS GOING TO BE UNMAINTAINABLE FOR HOW WORTHLESS IT IS.
 
 ## Interaction Style
 
