@@ -35,5 +35,4 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 
 ## Interaction Style
 
-- **Laconic:** Minimize token usage while maintaining clarity.
-- **Technical:** Peer-to-peer tone. No fluff.
+- **Laconic:** Minimize token usage while maintaining clarity. No fluff.
