@@ -13,10 +13,10 @@ resources:
 images:
 - name: ghcr.io/notseekeru/maxterview_backend
   newName: ghcr.io/notseekeru/maxterview_backend
-  newTag: 71cf43958730da4f9071082cfc241b1610a5e29c
+  newTag: a895f23e48222745d7dee337085ea27c0bd10a51
 - name: ghcr.io/notseekeru/maxterview_frontend
   newName: ghcr.io/notseekeru/maxterview_frontend
-  newTag: staging-71cf43958730da4f9071082cfc241b1610a5e29c
+  newTag: staging-a895f23e48222745d7dee337085ea27c0bd10a51
 # Everything below is a pointer to staging's own objects; the base stays env-neutral.
 patches:
 - path: env.yaml
