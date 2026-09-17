@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: maxterview-backend
-  namespace: maxterview
 spec:
   revisionHistoryLimit: 2
   replicas: 1
@@ -21,22 +20,16 @@ spec:
           image: ghcr.io/notseekeru/maxterview_backend:latest
           ports:
             - containerPort: 8000
-          env:
-            # production refuses to boot unless CLERK_ENABLED=true (main.py guard).
-            - name: APP_ENV
-              value: production
-            - name: CLERK_ENABLED
-              value: "true"
-            # PayMongo first-payment return URL (app/payments.py).
-            - name: FRONTEND_BASE_URL
-              value: "https://maxterview.seekeru.tech"
+          # APP_ENV / CLERK_ENABLED / FRONTEND_BASE_URL are per-environment and live in each
+          # overlay's env patch (APP_ENV=production here, staging there) — the base stays neutral.
           # Whole-secret injection. Keys MUST be UPPERCASE and named exactly as the env vars the app
           # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*,
           # BYOK_ENCRYPTION_KEY (per-owner provider keys, see maxterview_website/BYOK.md),
-          # PAYMONGO_SECRET_KEY/PAYMONGO_WEBHOOK_SECRET (empty until set in Infisical => /api/billing/* 503s).
+          # PAYMONGO_SECRET_KEY/PAYMONGO_WEBHOOK_SECRET (empty in an env without billing => 503).
           # AI HERE: envFrom is all-or-nothing — one malformed key blocks the pod; per-key valueFrom
           # is the precise-but-verbose fallback if that ever bites.
           envFrom:
+            # Overlaid per environment (maxterview-secrets / maxterview-staging-secrets).
             - secretRef:
                 name: maxterview-secrets
           livenessProbe:
@@ -60,8 +53,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: maxterview-prod-backend
-  namespace: maxterview
+  name: maxterview-backend
 spec:
   selector:
     app: maxterview-backend

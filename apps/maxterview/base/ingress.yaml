@@ -2,7 +2,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: maxterview-ingress
-  namespace: maxterview
   annotations:
     nginx.ingress.kubernetes.io/server-tokens: "false"
 
@@ -34,13 +33,13 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: maxterview-prod-backend
+                name: maxterview-backend
                 port:
                   number: 8000
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: maxterview-prod-frontend
+                name: maxterview-frontend
                 port:
                   number: 8080

@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Staging (maxterview-staging.seekeru.tech) — rehearsal target: prod-shaped data, test-mode
+# everything (Clerk DEVELOPMENT instance, PayMongo test keys), no real users or money.
+# ArgoCD: apps-of-apps/maxterview-staging.yaml points here. Namespace + Secret come from
+# `make apply MOD=k3s-staging ENV=staging` (own terraform state).
+namespace: maxterview-staging
+resources:
+- ../../base
+images:
+- name: ghcr.io/notseekeru/maxterview_backend
+  newName: ghcr.io/notseekeru/maxterview_backend
+  newTag: 2518bedc86c6be6d6114631570af72705cb40180
+# The SPA inlines its Clerk publishable key at build time, so staging needs its OWN image
+# (`.env.staging` -> the Development instance's pk_test_) — same repo, `staging-` tag prefix,
+# built and bumped by the CD matrix entry (D14's revisit trigger, landed).
+- name: ghcr.io/notseekeru/maxterview_frontend
+  newName: ghcr.io/notseekeru/maxterview_frontend
+  newTag: staging-2518bedc86c6be6d6114631570af72705cb40180
+patches:
+- path: env.yaml
+# Everything below is a pointer to staging's own objects; the base stays env-neutral.
+- target:
+    kind: Ingress
+    name: maxterview-ingress
+  patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: maxterview-staging.seekeru.tech
+- target:
+    kind: Deployment
+    name: maxterview-backend
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/envFrom/0/secretRef/name
+      value: maxterview-staging-secrets
+- target:
+    kind: Job
+    name: maxterview-migrate
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/envFrom/0/secretRef/name
+      value: maxterview-staging-secrets

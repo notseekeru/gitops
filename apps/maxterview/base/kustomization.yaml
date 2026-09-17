@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Environment-neutral manifests: deployments, services, the migration Job and the ingress shape.
+# Everything that differs between prod and staging (namespace, host, APP_ENV/CLERK_ENABLED/
+# FRONTEND_BASE_URL, which Secret the pods read, image tags) lives in overlays/<env>.
+# Kill switch: comment an entry out in an overlay to prune it (see README).
+resources:
+- backend.yaml
+- frontend.yaml
+- migration-job.yaml
+- ingress.yaml

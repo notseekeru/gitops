@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: maxterview-migrate
-  namespace: maxterview
   annotations:
     # PreSync: the schema lands BEFORE the new pods roll, so a code/schema mismatch never
     # serves traffic. Deleted before the next sync (not on success) so the last run's logs
