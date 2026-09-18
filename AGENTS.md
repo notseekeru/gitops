@@ -30,6 +30,7 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 ## Hard Rules
 
 - **Commit when justifiable:** Commit proactively when file changes form a justifiable logical unit, per the Commit Policy above.
+- **Skills:** Never invoke, load, or apply an agentic skill unless the user explicitly instructs or asks for it.
 - **Data Safety:** Never execute commands that risk uncommitted or unstaged data without explicit user confirmation.
 - **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS UNTIL EXPLICITLY STATED.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, ALWAYS ask the user.
 - **Documentation Optimization:** Do not write useless comments/docs. Prioritize removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. DO NOT WRITE IT IF YOU THINK IT IS GOING TO BE UNMAINTAINABLE FOR HOW WORTHLESS IT IS.
