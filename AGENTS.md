@@ -34,6 +34,7 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 - **Data Safety:** Never execute commands that risk uncommitted or unstaged data without explicit user confirmation.
 - **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS UNTIL EXPLICITLY STATED.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, ALWAYS ask the user.
 - **Documentation Optimization:** Do not write useless comments/docs. Prioritize removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. DO NOT WRITE IT IF YOU THINK IT IS GOING TO BE UNMAINTAINABLE FOR HOW WORTHLESS IT IS.
+- **No Doc Bloat:** One owner per fact. Before writing a doc, comment, or section, grep for the existing owner and point at it instead of restating it. Never restate code, schemas, config values, or another doc's content — code is the spec; docs carry only the _why_ the code cannot. No dated verification logs, no step-by-step rationale, no prose for things already done — history is the archive. When a thing ships, delete the section that predicted it; never append a "done" note beside it. Docs for unbuilt work are debt: cap them at current state and what comes next. A doc larger than the decision count it records is the signal to delete, not to reorganize. Deletion over addition; never answer a question with a new file.
 
 ## Interaction Style
 
