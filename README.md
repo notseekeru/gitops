@@ -42,7 +42,6 @@ the `argocd` CLI is listed in the flake but is not required.
 │       ├── base/           #   env-neutral: Deployments, Services, Ingress, PreSync migrate Job
 │       └── overlays/{prod,staging}/
 ├── infra/
-│   ├── diagram-ingress.yaml   # nginx Ingress for diagram.seekeru.tech (/api + /)
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
 ├── app.yaml                # ArgoCD root Application — applied by Terraform
 ├── kustomization.yaml      # Aggregates the Apps-of-Apps children (for `kubectl kustomize .` preview)
@@ -60,11 +59,11 @@ the `argocd` CLI is listed in the flake but is not required.
 | `maxterview.seekeru.tech`| `maxterview-backend:8000`   | `maxterview-frontend:8080`     |
 | `maxterview-staging.seekeru.tech`| `maxterview-backend:8000` | `maxterview-frontend:8080` |
 
-Backend refs are namespace-local, so an Ingress lives in the app's own path beside its Service, not in `infra/`
-(portfolio's is `apps/portfolio/ingress.yaml`; only diagram's is left in `infra/`).
+Backend refs are namespace-local, so every app's Ingress lives in the app's own path beside its Service
+(`apps/<app>/ingress.yaml`); `infra/` holds only the tunnel.
 
-Namespaces: `portfolio`, `maxterview`, `maxterview-staging` — Terraform-created, one per app/env. Only `diagram`
-and the tunnel still sit in `default`.
+Namespaces: `portfolio`, `diagram`, `maxterview`, `maxterview-staging` — Terraform-created, one per app/env.
+`default` is left to `cloudflared`.
 
 maxterview is one namespace per env (`maxterview` / `maxterview-staging`): the Service names are identical and
 each overlay patches its own namespace + host, so the staging host is the same manifests with different values
@@ -84,10 +83,10 @@ All Kubernetes secrets are **created by the Terraform apply** (from Infisical va
 not manually. The ones consumed by workloads in this repo:
 
 - `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
-- `ghcr-login`          (`default`, `portfolio`, `maxterview`, `maxterview-staging`) — GHCR pull secret. **Namespace-local**:
+- `ghcr-login`          (`default`, `portfolio`, `diagram`, `maxterview`, `maxterview-staging`) — GHCR pull secret. **Namespace-local**:
   `imagePullSecrets` never cross namespaces and the GHCR packages are private, so each app namespace needs its
   own copy (`infra/k3s` creates every prod copy, `infra/k3s-staging` the staging one).
-- `diagram-secrets`     (`default`) — API key + PostgreSQL connection string.
+- `diagram-secrets`     (`diagram`) — API key + PostgreSQL connection string.
 - `maxterview-secrets`  (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
   with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
   `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
@@ -258,8 +257,7 @@ so the parent never reads as "Synced". Judge deployment state by the children:
 
 ```bash
 kubectl get applications -n argocd        # one row per app
-kubectl get deploy -n default             # diagram + infra workloads
-kubectl get deploy -n portfolio           # portfolio workloads
+kubectl get deploy -A                     # workloads (`default` = the tunnel only)
 ```
 
 ## Known trade-offs (accepted, not fixed)
