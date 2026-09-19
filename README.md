@@ -1,6 +1,6 @@
 # gitops
 
-This repo holds the GitOps content for the `portfolio.seekeru.tech`, `diagram.seekeru.tech`, `maxterview.seekeru.tech` and `maxterview-staging.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
+This repo holds the GitOps content for the `portfolio.seekeru.tech`, `diagram.seekeru.tech` and `maxterview.seekeru.tech` stack on Kubernetes. It is **not** the installer — cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
 
 The repo uses ArgoCD **App of Apps**:
 
@@ -33,14 +33,13 @@ the `argocd` CLI is listed in the flake but is not required.
 │   ├── portfolio.yaml      # ArgoCD App → apps/portfolio
 │   ├── diagram.yaml        # ArgoCD App → apps/diagram
 │   ├── maxterview.yaml     # ArgoCD App → apps/maxterview/overlays/prod
-│   ├── maxterview-staging.yaml # ArgoCD App → apps/maxterview/overlays/staging
 │   └── infra.yaml          # ArgoCD App → infra
 ├── apps/
 │   ├── portfolio/          # Portfolio app — React frontend (static)
 │   ├── diagram/            # Diagram app   — Node backend + React frontend
 │   └── maxterview/         # Maxterview    — FastAPI backend + React frontend
 │       ├── base/           #   env-neutral: Deployments, Services, Ingress, PreSync migrate Job
-│       └── overlays/{prod,staging}/
+│       └── overlays/prod/
 ├── infra/
 │   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
 ├── app.yaml                # ArgoCD root Application — applied by Terraform
@@ -57,17 +56,16 @@ the `argocd` CLI is listed in the flake but is not required.
 | `portfolio.seekeru.tech` | _(no API route)_            | `portfolio-prod-frontend:8080` |
 | `diagram.seekeru.tech`   | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
 | `maxterview.seekeru.tech`| `maxterview-backend:8000`   | `maxterview-frontend:8080`     |
-| `maxterview-staging.seekeru.tech`| `maxterview-backend:8000` | `maxterview-frontend:8080` |
 
 Backend refs are namespace-local, so every app's Ingress lives in the app's own path beside its Service
 (`apps/<app>/ingress.yaml`); `infra/` holds only the tunnel.
 
-Namespaces: `portfolio`, `diagram`, `maxterview`, `maxterview-staging` — Terraform-created, one per app/env.
+Namespaces: `portfolio`, `diagram`, `maxterview` — Terraform-created, one per app.
 `default` is left to `cloudflared`.
 
-maxterview is one namespace per env (`maxterview` / `maxterview-staging`): the Service names are identical and
-each overlay patches its own namespace + host, so the staging host is the same manifests with different values
-(and its own Terraform-created namespace + Secrets).
+maxterview renders from kustomize base + `overlays/prod`; the overlay patches namespace, host, env and image
+tags, so a second env is a new overlay plus its own Terraform-created namespace + secrets (see the Terraform
+repo's ADR 0003 for what that costs).
 
 ### Ingress annotations
 
@@ -83,24 +81,20 @@ All Kubernetes secrets are **created by the Terraform apply** (from Infisical va
 not manually. The ones consumed by workloads in this repo:
 
 - `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
-- `ghcr-login`          (`default`, `portfolio`, `diagram`, `maxterview`, `maxterview-staging`) — GHCR pull secret. **Namespace-local**:
+- `ghcr-login`          (`default`, `portfolio`, `diagram`, `maxterview`) — GHCR pull secret. **Namespace-local**:
   `imagePullSecrets` never cross namespaces and the GHCR packages are private, so each app namespace needs its
-  own copy (`infra/k3s` creates every prod copy, `infra/k3s-staging` the staging one).
+  own copy (`infra/k3s` creates every copy).
 - `diagram-secrets`     (`diagram`) — API key + PostgreSQL connection string.
 - `maxterview-secrets`  (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
   with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
   `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
   (commit `6727cf8`); the PayMongo pair now carries the live key + the prod `payment.paid` endpoint's secret.
-- `maxterview-staging-secrets` (`maxterview-staging`) — staging's copy: same 11 UPPERCASE keys, staging values
-  (staging Neon project, Clerk **Development** instance, PayMongo test pair). Created by
-  `make apply MOD=k3s-staging ENV=staging`; the Infisical plan behind it is documented in the `maxterview_website`
-  repo's `.pi/skills/repo-operator/SKILL.md` (per-key `${prod.consumers.terraform.KEY}` references + 5 overrides).
 
 Terraform also creates `repo-secret` (`argocd`) — the HTTPS credentials ArgoCD
 uses to pull this git repo. It is not consumed by workloads but is required for ArgoCD
 to sync.
 
-Manage their values in Infisical and re-run `make apply MOD=k3s` (prod), `MOD=k3s-staging ENV=staging` (staging) or `MOD=doks` in the
+Manage their values in Infisical and re-run `make apply MOD=k3s` in the
 Terraform repo. Do **not** create them with `kubectl` — Terraform owns them.
 
 ## Image versions
@@ -115,7 +109,6 @@ which enables exact rollback. As of writing:
 | diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
 | maxterview| `ghcr.io/notseekeru/maxterview_backend` | `71cf439…a5e29c`  |
 | maxterview| `ghcr.io/notseekeru/maxterview_frontend`| `71cf439…a5e29c`  |
-| maxterview (staging)| `ghcr.io/notseekeru/maxterview_frontend`| `staging-71cf439…a5e29c` — tag-only, `latest` stays the prod SPA (the Clerk key is baked at build time) |
 
 **All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`). For each
 service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on
@@ -132,7 +125,7 @@ This repo is **not** applied by hand. The Terraform repo is the installer:
 2. That root Application (App of Apps) creates the children in `apps-of-apps/`, each of
    which auto-syncs its own workload path (`apps/`, `infra/`) with `prune` + `selfHeal`.
 
-So a fresh cluster is bootstrapped entirely by `make apply MOD=k3s` (or `MOD=doks`) in
+So a fresh cluster is bootstrapped entirely by `make apply MOD=k3s` in
 the Terraform repo. This repo's only job is to hold the YAML ArgoCD syncs.
 
 > **Never** `kubectl apply` `app.yaml`, the secrets, or files under `apps/`/`infra/` directly —

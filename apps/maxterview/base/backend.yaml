@@ -21,7 +21,7 @@ spec:
           ports:
             - containerPort: 8000
           # APP_ENV / CLERK_ENABLED / FRONTEND_BASE_URL are per-environment and live in each
-          # overlay's env patch (APP_ENV=production here, staging there) — the base stays neutral.
+          # overlay's env patch (APP_ENV=production) — the base stays neutral.
           # Whole-secret injection. Keys MUST be UPPERCASE and named exactly as the env vars the app
           # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*,
           # BYOK_ENCRYPTION_KEY (per-owner provider keys, see maxterview_website/BYOK.md),
@@ -29,7 +29,7 @@ spec:
           # AI HERE: envFrom is all-or-nothing — one malformed key blocks the pod; per-key valueFrom
           # is the precise-but-verbose fallback if that ever bites.
           envFrom:
-            # Overlaid per environment (maxterview-secrets / maxterview-staging-secrets).
+            # Overlaid per environment (maxterview-secrets).
             - secretRef:
                 name: maxterview-secrets
           livenessProbe:
