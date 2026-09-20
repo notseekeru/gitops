@@ -14,8 +14,8 @@ kind: Role
 metadata:
   name: maxterview-alloy
 rules:
-  # discovery.kubernetes (role=pod) lists and watches pods; a namespaced Role is also what scopes
-  # the tailing to this namespace.
+  # discovery.kubernetes (role=pod) lists and watches pods in this namespace only (see the
+  # namespaces block in the config below), and loki.source.kubernetes reads their logs via the API.
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
@@ -51,6 +51,12 @@ data:
 
     discovery.kubernetes "pods" {
       role = "pod"
+
+      // Namespaced discovery: the Role grants pods list/watch in THIS namespace only, and discovery
+      // lists cluster-wide by default — without this a namespaced Role yields zero targets (403).
+      namespaces {
+        own_namespace = true
+      }
     }
 
     discovery.relabel "pods" {
@@ -116,6 +122,10 @@ spec:
     metadata:
       labels:
         app: maxterview-alloy
+      annotations:
+        # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
+        # restart anything, and Alloy reads its config at startup. Bump this hash with the config.
+        maxterview/config-hash: "df50c4d9a9bd"
     spec:
       serviceAccountName: maxterview-alloy
       containers:
