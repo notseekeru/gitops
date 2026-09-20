@@ -62,6 +62,16 @@ data:
     discovery.relabel "pods" {
       targets = discovery.kubernetes.pods.targets
 
+      // Skip finished pods. A Completed Job pod (the migration) has no live stream, and tailing it
+      // through the API re-opens the closed stream in a hot loop (~2/s) forever.
+      // `drop` on the finished phases rather than `keep` on Running, so a missing label can never
+      // silently drop every target.
+      rule {
+        source_labels = ["__meta_kubernetes_pod_phase"]
+        regex         = "Succeeded|Failed"
+        action        = "drop"
+      }
+
       // Namespace is the env proxy: the namespace IS the environment (maxterview = prod).
       rule {
         source_labels = ["__meta_kubernetes_namespace"]
@@ -125,7 +135,7 @@ spec:
       annotations:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config.
-        maxterview/config-hash: "df50c4d9a9bd"
+        maxterview/config-hash: "436d760670b7"
     spec:
       serviceAccountName: maxterview-alloy
       containers:
