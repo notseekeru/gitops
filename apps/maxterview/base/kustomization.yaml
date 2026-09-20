@@ -9,3 +9,4 @@ resources:
 - frontend.yaml
 - migration-job.yaml
 - ingress.yaml
+- alloy.yaml

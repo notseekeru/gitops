@@ -1,0 +1,173 @@
+# Log pipeline (M13 tier 2): the app's stdout -> Grafana Cloud Loki.
+#
+# One Deployment, not a DaemonSet: loki.source.kubernetes tails through the Kubernetes API, so this
+# needs no hostPath, no node filesystem and no privileged container — just pods list/watch plus
+# pods/log get in this namespace. The Grafana write credential lives here and nowhere else; the app
+# itself never holds one.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: maxterview-alloy
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: maxterview-alloy
+rules:
+  # discovery.kubernetes (role=pod) lists and watches pods; a namespaced Role is also what scopes
+  # the tailing to this namespace.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Reading container logs. Nothing here can read Secrets or write anything.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maxterview-alloy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: maxterview-alloy
+subjects:
+  - kind: ServiceAccount
+    name: maxterview-alloy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maxterview-alloy
+data:
+  config.alloy: |
+    // maxterview pod logs -> Grafana Cloud Loki (M13 tier 2).
+    //
+    // Tails through the Kubernetes API (loki.source.kubernetes), so there is no hostPath, no privileged
+    // container and no node filesystem: Alloy only needs pods list/watch and pods/log get in this
+    // namespace. Rediscovery scope is what keeps it cheap — a DaemonSet watching every pod on the node
+    // is the documented 3 GB/pod footgun.
+
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      // Namespace is the env proxy: the namespace IS the environment (maxterview = prod).
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+
+      // app=maxterview-backend / maxterview-frontend / maxterview-alloy, from the pod label.
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [loki.write.cloud.receiver]
+    }
+
+    loki.write "cloud" {
+      endpoint {
+        // https://logs-prod-<region>.grafana.net/loki/api/v1/push — Grafana Cloud's logs endpoint.
+        url = sys.env("LOKI_URL")
+        basic_auth {
+          // Grafana Cloud uses the stack's numeric instance ID as the user, and the access-policy
+          // token (scope logs:write) as the password.
+          username = sys.env("LOKI_USER")
+          password = sys.env("LOKI_TOKEN")
+        }
+      }
+
+      external_labels = {
+        cluster = "k3s",
+        app     = "maxterview",
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxterview-alloy
+spec:
+  revisionHistoryLimit: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxterview-alloy
+  template:
+    metadata:
+      labels:
+        app: maxterview-alloy
+    spec:
+      serviceAccountName: maxterview-alloy
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.19.2
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --storage.path=/var/lib/alloy/data
+          ports:
+            - name: http
+              containerPort: 12345
+          # The write credential is a Secret created by Terraform from Infisical (`make apply
+          # MOD=k3s`), same pattern as maxterview-secrets. Keys are the env-var names the config
+          # reads via sys.env().
+          env:
+            - name: LOKI_URL
+              valueFrom:
+                secretKeyRef:
+                  name: maxterview-logs
+                  key: LOKI_URL
+            - name: LOKI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: maxterview-logs
+                  key: LOKI_USER
+            - name: LOKI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: maxterview-logs
+                  key: LOKI_TOKEN
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 12345
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "64Mi"
+            limits:
+              memory: "192Mi"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+            - name: storage
+              mountPath: /var/lib/alloy/data
+      volumes:
+        - name: config
+          configMap:
+            name: maxterview-alloy
+        - name: storage
+          emptyDir: {}
