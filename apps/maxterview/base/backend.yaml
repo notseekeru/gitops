@@ -25,7 +25,9 @@ spec:
           # Whole-secret injection. Keys MUST be UPPERCASE and named exactly as the env vars the app
           # reads: DATABASE_URL (Neon direct host), CLERK_JWKS_URL/CLERK_DOMAIN, LLM_*,
           # BYOK_ENCRYPTION_KEY (per-owner provider keys, see maxterview_website/BYOK.md),
-          # PAYMONGO_SECRET_KEY/PAYMONGO_WEBHOOK_SECRET (empty in an env without billing => 503).
+          # CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN (voice, M16: empty disables the controls and the
+          # UI says so), PAYMONGO_SECRET_KEY/PAYMONGO_WEBHOOK_SECRET (empty in an env without billing
+          # => 503).
           # AI HERE: envFrom is all-or-nothing — one malformed key blocks the pod; per-key valueFrom
           # is the precise-but-verbose fallback if that ever bites.
           envFrom:
