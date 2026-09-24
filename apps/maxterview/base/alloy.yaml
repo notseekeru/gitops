@@ -1,4 +1,5 @@
-# Log pipeline (M13 tier 2): the app's stdout -> Grafana Cloud Loki.
+# Log pipeline (M13 tier 2) plus the OTLP receiver the backend exports to (M13 tier 3): the app's
+# stdout and its spans/metrics all leave through this pod.
 #
 # One Deployment, not a DaemonSet: loki.source.kubernetes tails through the Kubernetes API, so this
 # needs no hostPath, no node filesystem and no privileged container — just pods list/watch plus
@@ -106,7 +107,8 @@ data:
         url = sys.env("LOKI_URL")
         basic_auth {
           // Grafana Cloud uses the stack's numeric instance ID as the user, and the access-policy
-          // token (scope logs:write) as the password.
+          // token as the password. That token carries logs:write, metrics:write and traces:write and
+          // is the one credential behind this whole pipeline.
           username = sys.env("LOKI_USER")
           password = sys.env("LOKI_TOKEN")
         }
@@ -117,6 +119,62 @@ data:
         app     = "maxterview",
       }
     }
+
+    // backend/src/app/telemetry.py -> here -> Grafana Cloud Tempo and Prometheus via the OTLP
+    // gateway, which routes by signal. HTTP only: the Python exporter speaks HTTP/protobuf, so there
+    // is no second listen address to own.
+    //
+    // In-cluster and unauthenticated on purpose: the receiver is reachable only through the ClusterIP
+    // Service below, and the app is not allowed near the Grafana credential, so the namespace is the
+    // trust boundary, exactly as it already is for the log tailing.
+    otelcol.receiver.otlp "apps" {
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+
+      output {
+        metrics = [otelcol.processor.batch.apps.input]
+        traces  = [otelcol.processor.batch.apps.input]
+      }
+    }
+
+    // One export per batch, not one per span: a chat turn closes a handful of spans in a burst.
+    otelcol.processor.batch "apps" {
+      timeout = "5s"
+
+      output {
+        metrics = [otelcol.exporter.otlphttp.cloud.input]
+        traces  = [otelcol.exporter.otlphttp.cloud.input]
+      }
+    }
+
+    otelcol.exporter.otlphttp "cloud" {
+      client {
+        // https://otlp-gateway-<zone>.grafana.net/otlp
+        endpoint = sys.env("OTLP_URL")
+        auth     = otelcol.auth.basic.cloud.handler
+        timeout  = "10s"
+      }
+    }
+
+    otelcol.auth.basic "cloud" {
+      username = sys.env("LOKI_USER")
+      password = sys.env("LOKI_TOKEN")
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maxterview-alloy
+spec:
+  selector:
+    app: maxterview-alloy
+  ports:
+    # ClusterIP only, and only this port: 12345 is the Alloy UI and has no business being reachable
+    # from another pod.
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -134,8 +192,9 @@ spec:
         app: maxterview-alloy
       annotations:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
-        # restart anything, and Alloy reads its config at startup. Bump this hash with the config.
-        maxterview/config-hash: "436d760670b7"
+        # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
+        # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
+        maxterview/config-hash: "aa1710675542"
     spec:
       serviceAccountName: maxterview-alloy
       containers:
@@ -149,6 +208,8 @@ spec:
           ports:
             - name: http
               containerPort: 12345
+            - name: otlp-http
+              containerPort: 4318
           # The write credential is a Secret created by Terraform from Infisical (`make apply
           # MOD=k3s`), same pattern as maxterview-secrets. Keys are the env-var names the config
           # reads via sys.env().
@@ -168,6 +229,11 @@ spec:
                 secretKeyRef:
                   name: maxterview-logs
                   key: LOKI_TOKEN
+            - name: OTLP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: maxterview-logs
+                  key: OTLP_URL
           readinessProbe:
             httpGet:
               path: /-/ready
@@ -177,9 +243,9 @@ spec:
           resources:
             requests:
               cpu: "10m"
-              memory: "64Mi"
+              memory: "96Mi"
             limits:
-              memory: "192Mi"
+              memory: "256Mi"
           volumeMounts:
             - name: config
               mountPath: /etc/alloy
