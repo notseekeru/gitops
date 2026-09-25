@@ -158,7 +158,12 @@ data:
     }
 
     otelcol.auth.basic "cloud" {
-      username = sys.env("LOKI_USER")
+      // The stack's tenancy id, not the Loki instance id. Grafana Cloud gives each legacy service its
+      // own basic-auth user (logs 1793703, traces 1788004, metrics 3596064 on this stack) and the OTLP
+      // gateway a different one again, shared with profiles and insights. Reusing LOKI_USER here is a
+      // 401 on every batch with no other symptom: the receiver accepts, the exporter drops, panels
+      // stay empty. One token covers all of it; only the username differs.
+      username = sys.env("OTLP_USER")
       password = sys.env("LOKI_TOKEN")
     }
 ---
@@ -194,7 +199,7 @@ spec:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
-        maxterview/config-hash: "aa1710675542"
+        maxterview/config-hash: "3db2659696bc"
     spec:
       serviceAccountName: maxterview-alloy
       containers:
@@ -234,6 +239,11 @@ spec:
                 secretKeyRef:
                   name: maxterview-logs
                   key: OTLP_URL
+            # Not in the Secret on purpose: an instance ID is not a credential (it sits beside every
+            # datasource in the portal), and keeping it in the manifest means one push turns the
+            # exporter on with no terraform-then-gitops ordering to get wrong.
+            - name: OTLP_USER
+              value: "1835920"
           readinessProbe:
             httpGet:
               path: /-/ready
