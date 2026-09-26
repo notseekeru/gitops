@@ -4,10 +4,10 @@ This repo holds the GitOps content for the `portfolio.seekeru.tech`, `diagram.se
 
 The repo uses ArgoCD **App of Apps**:
 
-- `apps-of-apps/`  — the **ArgoCD Application objects** (children) telling ArgoCD which workload paths to sync.
-- `apps/`          — the **workloads** (Deployments, Services) for each app.
-- `infra/`         — shared cluster resources (ingress, Cloudflare tunnel).
-- `app.yaml`       — the **root Application** (parent). Applied by Terraform, not by hand.
+- `apps-of-apps/` — the **ArgoCD Application objects** (children) telling ArgoCD which workload paths to sync.
+- `apps/` — the **workloads** (Deployments, Services) for each app.
+- `infra/` — shared cluster resources (ingress, Cloudflare tunnel).
+- `app.yaml` — the **root Application** (parent). Applied by Terraform, not by hand.
 
 **Deploy model:** push commits to `main`; ArgoCD watches this repo and each child Application syncs its own path with `prune` + `selfHeal`. Never apply workloads by hand — that fights `selfHeal`.
 
@@ -51,11 +51,11 @@ the `argocd` CLI is listed in the flake but is not required.
 
 ## Ingress
 
-| Domain                   | /api →                      | / →                            |
-| ------------------------ | --------------------------- | ------------------------------ |
-| `portfolio.seekeru.tech` | _(no API route)_            | `portfolio-prod-frontend:8080` |
-| `diagram.seekeru.tech`   | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
-| `maxterview.seekeru.tech`| `maxterview-backend:8000`   | `maxterview-frontend:8080`     |
+| Domain                    | /api →                      | / →                            |
+| ------------------------- | --------------------------- | ------------------------------ |
+| `portfolio.seekeru.tech`  | _(no API route)_            | `portfolio-prod-frontend:8080` |
+| `diagram.seekeru.tech`    | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
+| `maxterview.seekeru.tech` | `maxterview-backend:8000`   | `maxterview-frontend:8080`     |
 
 Backend refs are namespace-local, so every app's Ingress lives in the app's own path beside its Service
 (`apps/<app>/ingress.yaml`); `infra/` holds only the tunnel.
@@ -80,12 +80,12 @@ repo's ADR 0003 for what that costs).
 All Kubernetes secrets are **created by the Terraform apply** (from Infisical values) —
 not manually. The ones consumed by workloads in this repo:
 
-- `cloudflared-token`   (`default`) — Cloudflare Tunnel token.
-- `ghcr-login`          (`default`, `portfolio`, `diagram`, `maxterview`) — GHCR pull secret. **Namespace-local**:
+- `cloudflared-token` (`default`) — Cloudflare Tunnel token.
+- `ghcr-login` (`default`, `portfolio`, `diagram`, `maxterview`) — GHCR pull secret. **Namespace-local**:
   `imagePullSecrets` never cross namespaces and the GHCR packages are private, so each app namespace needs its
   own copy (`infra/k3s` creates every copy).
-- `diagram-secrets`     (`diagram`) — API key + PostgreSQL connection string.
-- `maxterview-secrets`  (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
+- `diagram-secrets` (`diagram`) — API key + PostgreSQL connection string.
+- `maxterview-secrets` (`maxterview`) — Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
   with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
   `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
   (commit `6727cf8`); the PayMongo pair now carries the live key + the prod `payment.paid` endpoint's secret.
@@ -102,13 +102,13 @@ Terraform repo. Do **not** create them with `kubectl` — Terraform owns them.
 Images are pinned to immutable SHA tags in each app's `kustomization.yaml` (never `latest`),
 which enables exact rollback. As of writing:
 
-| App       | Image                                   | Tag               |
-| --------- | --------------------------------------- | ----------------- |
-| portfolio | `ghcr.io/notseekeru/portfolio-frontend` | `00fe8ae…7952e`   |
-| diagram   | `ghcr.io/notseekeru/diagram_backend`    | `3e30429…9ab6d09` |
-| diagram   | `ghcr.io/notseekeru/diagram_frontend`   | `3e30429…9ab6d09` |
-| maxterview| `ghcr.io/notseekeru/maxterview_backend` | `71cf439…a5e29c`  |
-| maxterview| `ghcr.io/notseekeru/maxterview_frontend`| `71cf439…a5e29c`  |
+| App        | Image                                    | Tag               |
+| ---------- | ---------------------------------------- | ----------------- |
+| portfolio  | `ghcr.io/notseekeru/portfolio-frontend`  | `00fe8ae…7952e`   |
+| diagram    | `ghcr.io/notseekeru/diagram_backend`     | `3e30429…9ab6d09` |
+| diagram    | `ghcr.io/notseekeru/diagram_frontend`    | `3e30429…9ab6d09` |
+| maxterview | `ghcr.io/notseekeru/maxterview_backend`  | `71cf439…a5e29c`  |
+| maxterview | `ghcr.io/notseekeru/maxterview_frontend` | `71cf439…a5e29c`  |
 
 **All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`). For each
 service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on
@@ -152,9 +152,9 @@ entry out, commit, and ArgoCD prunes it (`prune: true`); uncomment to bring it b
 # Kill switch: comment an entry out to prune it (see README).
 #- migration-job.yaml
 resources:
-- backend.yaml
-- frontend.yaml
-- ingress.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
 images: ...
 ```
 
@@ -233,14 +233,12 @@ CLI needed):
 
 ```bash
 # Refresh the app's view of the repo, then run a sync with prune.
-# The app name is one of: gitops (root) | portfolio | diagram | infra
 APP=gitops
 kubectl patch application $APP -n argocd --type merge -p \
   '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
 kubectl patch application $APP -n argocd --type merge -p \
   '{"metadata":{"annotations":{"argocd.argoproj.io/operation":"{\"sync\":{\"revision\":\"HEAD\",\"prune\":true,\"dryRun\":false,\"force\":false},\"syncOperationResult\":{}}"}}}'
 ```
-
 
 ### Sync status
 
