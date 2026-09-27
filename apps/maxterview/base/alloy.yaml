@@ -202,6 +202,23 @@ spec:
         maxterview/config-hash: "3db2659696bc"
     spec:
       serviceAccountName: maxterview-alloy
+      # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
+      # otlp-gateway-prod-ap-southeast-1.grafana.net on 10.43.0.10:53: server misbehaving`, 103
+      # dropped OTLP batches in one hour). CoreDNS stays first so in-cluster names still resolve;
+      # the public resolver is only reached once it fails. Nothing under dnsPolicy: None is
+      # inherited, so the search list and ndots repeat the defaults the kubelet would have written.
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+          - 10.43.0.10
+          - 1.1.1.1
+        searches:
+          - maxterview.svc.cluster.local
+          - svc.cluster.local
+          - cluster.local
+        options:
+          - name: ndots
+            value: "5"
       containers:
         - name: alloy
           image: grafana/alloy:v1.19.2
