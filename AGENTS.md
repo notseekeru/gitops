@@ -36,12 +36,16 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 - **Data Safety:** Never execute commands that risk uncommitted or unstaged data without explicit user confirmation.
 - **Security:** **ZERO TOUCH POLICY ON CREDENTIALS/SECRETS UNTIL EXPLICITLY STATED.** Do not read, fetch, display, store, or infer any credential, token, or secret. If a task requires one, ALWAYS ask the user.
 - **Documentation Optimization:** Do not write useless comments/docs. Prioritize removing unhelpful, and redundant documentation, comment or code. Remove it if it offers little to no value. DO NOT WRITE IT IF YOU THINK IT IS GOING TO BE UNMAINTAINABLE FOR HOW WORTHLESS IT IS.
-- **Comment Test:** A comment earns its line only by carrying the _why_ the code cannot: an invariant, a platform/version trap, an ordering or security constraint, a measured number, a rejected alternative. Everything else goes.
-  - **Restatement dies.** If it restates the identifier, signature, or the next line, delete it. The code is the spec.
-  - **Banners die.** No `// --- section ---` dividers, either within a file or splitting one function from the next. Sectioning is what order, naming, and file boundaries are for.
-  - **Step labels die.** No narration of what the next statement does (`# parse args`, `# wait for ports`); keep only what a reader cannot get from the statement itself (why 10 s, why retry, why this port).
-  - **Keep on any hint of blast radius:** infra and deploy topology, migrations and schema/FK behaviour, secret or auth handling, env/config coupling, ordering, idempotence, races, quota and cost ceilings, cache/state invalidation, irreversibility, or a non-obvious count/limit. When in doubt, the cost of a wrong comment is a stale line; the cost of a missing one is an outage. Keep it.
-  - **Simplify, do not delete, a why-comment attached to trivia.** Move the fact to where it belongs (a name, a constant, its owner module) and drop the sentence after it.
+- **Comment Test:** Delete is the default. A comment must pass all three checks or it does not exist:
+  1. **Not already named.** The identifier, signature or type names the fact. `QR_TTL_MIN = 30`, `EVIDENCE_CAP_BASE`, `_coerce_score` need nothing: the name is the comment.
+  2. **Not already readable.** The clause is derivable from the adjacent code, including its order, its `if` branches and its `or` fallbacks.
+  3. **Not said twice.** One fact per line. Clauses that restate each other collapse to one clause.
+  A comment may not contain a value, string or identifier the code already holds. That is a second source of truth and it rots silently: say what a value is **bound to**, never what it is.
+  Then keep it only if it carries a why the code cannot: an ordering or security constraint, a provider or platform trap, a rejected alternative, a ceiling, or a measurement with its date.
+  - **Rewrite is not the fix.** Shortening a bloated comment leaves it bloated. Delete the clause that failed a check; do not reword it.
+  - **Banners die.** No `// --- section ---` dividers. Order, naming and file boundaries do that job.
+  - **Step labels die.** No narration of what the next statement does.
+  - **Keep on any hint of blast radius:** infra and deploy topology, migrations and schema/FK behaviour, secret or auth handling, env/config coupling, ordering, idempotence, races, quota and cost ceilings, cache or state invalidation, irreversibility, a non-obvious count or limit.
 - **Minimalism:** Functionality and signal is enough. Ship the shortest artifact that works: no filler, decoration, hedging, or restated premise. Applies to code, docs, prose, UI, and responses alike.
 - **No AI Slop:** Human prose only. Banned in every artifact (code, commits, docs, comments, responses, UI copy):
   - **Punctuation:** em dashes (use commas, colons, parens, or a period), `--` as a dash, ellipses for drama. En dashes only in real numeric ranges.
@@ -50,9 +54,11 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
   - **Structure:** Bold-lead bullets where plain prose works, emoji headers, decorative tables, "key points" sections that repeat the body, tricolons and "firstly/secondly/finally" scaffolding, headers on a two-paragraph answer.
   - **Tone:** hedging (`it's worth noting`, `generally speaking`, `arguably`), enthusiasm padding, self-narration (`I will now`, `I've gone ahead and`), meta-commentary about what you are about to output.
   - **Tests:** Regex check for `—`, banned vocabulary above, and the banned phrases list. If the regex matches, rewrite; do not substitute a synonym. Say less instead.
+- **Plain findings:** Say what was measured, in plain words, then why it matters if it does. One chain: cause, then effect. No metaphor, no ranking, no comparison, no stakes you did not measure; if the harm is unmeasured, say so.
 - **No Explainer Chrome:** Never render text whose only job is to explain a control the user can already see ("Enter sends, Shift+Enter for a new line", "Press Send to submit", arrow/step captions, feature callouts). Keyboard shortcuts, formats, and limits go in `placeholder`, `title`, or `aria-label`, which cost no pixels and cannot go stale against the UI. A visible hint must be earned: it stays only when the action is unrecoverable without it (a destructive confirm, a dead end, an error the user must act on). Default answer is delete.
 - **No Doc Bloat:** One owner per fact. Before writing a doc, comment, or section, grep for the existing owner and point at it instead of restating it. Never restate code, schemas, config values, or another doc's content — code is the spec; docs carry only the _why_ the code cannot. No dated verification logs, no step-by-step rationale, no prose for things already done — history is the archive. When a thing ships, delete the section that predicted it; never append a "done" note beside it. Docs for unbuilt work are debt: cap them at current state and what comes next. A doc larger than the decision count it records is the signal to delete, not to reorganize. Deletion over addition; never answer a question with a new file.
 
 ## Interaction Style
 
 - **Laconic:** Minimize token usage while maintaining clarity. No fluff. Answer first, then only the detail required to act.
+
