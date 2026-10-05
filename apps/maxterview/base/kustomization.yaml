@@ -4,6 +4,8 @@ kind: Kustomization
 # Everything env-specific (namespace, host, APP_ENV/CLERK_ENABLED/FRONTEND_BASE_URL, which Secret the
 # pods read, image tags) lives in overlays/<env>.
 # Kill switch: comment an entry out in an overlay to prune it (see README).
+components:
+- ../../../components/ephemeral-storage
 resources:
 - backend.yaml
 - frontend.yaml

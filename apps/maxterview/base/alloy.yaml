@@ -354,4 +354,7 @@ spec:
           configMap:
             name: maxterview-alloy
         - name: storage
-          emptyDir: {}
+          # The exporters' WAL grows while Grafana is unreachable; unbounded it lands on nodefs
+          # beside kubelet's own eviction threshold. Same ceiling as the LimitRange default.
+          emptyDir:
+            sizeLimit: 512Mi
