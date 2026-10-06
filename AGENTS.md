@@ -40,13 +40,14 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
   1. **Not already named.** The identifier, signature or type names the fact. `QR_TTL_MIN = 30`, `EVIDENCE_CAP_BASE`, `_coerce_score` need nothing: the name is the comment.
   2. **Not already readable.** The clause is derivable from the adjacent code, including its order, its `if` branches and its `or` fallbacks.
   3. **Not said twice.** One fact per line. Clauses that restate each other collapse to one clause.
-  A comment may not contain a value, string or identifier the code already holds. That is a second source of truth and it rots silently: say what a value is **bound to**, never what it is.
-  Then keep it only if it carries a why the code cannot: an ordering or security constraint, a provider or platform trap, a rejected alternative, a ceiling, or a measurement with its date.
+     A comment may not contain a value, string or identifier the code already holds. That is a second source of truth and it rots silently: say what a value is **bound to**, never what it is.
+     Then keep it only if it carries a why the code cannot: an ordering or security constraint, a provider or platform trap, a rejected alternative, a ceiling, or a measurement with its date.
   - **Rewrite is not the fix.** Shortening a bloated comment leaves it bloated. Delete the clause that failed a check; do not reword it.
   - **Banners die.** No `// --- section ---` dividers. Order, naming and file boundaries do that job.
   - **Step labels die.** No narration of what the next statement does.
   - **Keep on any hint of blast radius:** infra and deploy topology, migrations and schema/FK behaviour, secret or auth handling, env/config coupling, ordering, idempotence, races, quota and cost ceilings, cache or state invalidation, irreversibility, a non-obvious count or limit.
 - **Minimalism:** Functionality and signal is enough. Ship the shortest artifact that works: no filler, decoration, hedging, or restated premise. Applies to code, docs, prose, UI, and responses alike.
+- **Do Not Rewrite Working Copy:** Existing user-facing strings, labels, docs and prose are not yours to reword. Polish is structure, spacing and hierarchy; it is never a reason to touch a line that already works. A refactor leaves the words alone. Never expand a fact into a clause (`10 turns a day` does not become `10 chat turns a day, about one finished run`), never add a derived number, unit or reset time nobody asked for, and never restate a value that another surface already owns. Correctness fixes change the fewest words and keep the original voice; if a line must change, quote the old one and the reason first.
 - **No AI Slop:** Human prose only. Banned in every artifact (code, commits, docs, comments, responses, UI copy):
   - **Punctuation:** em dashes (use commas, colons, parens, or a period), `--` as a dash, ellipses for drama. En dashes only in real numeric ranges.
   - **Vocabulary:** leverage, utilize, robust, seamless, delve, dive into, crucial, pivotal, vital, comprehensive, holistic, nuanced, tapestry, landscape, realm, journey, testament, underscore (verb), foster, empower, unlock, elevate, streamline, harness, navigate (figurative), it's not just X but Y, the key takeaway, at the end of the day.
@@ -61,4 +62,3 @@ Commits are atomic: one logical change per commit, scoped to a coherent set of f
 ## Interaction Style
 
 - **Laconic:** Minimize token usage while maintaining clarity. No fluff. Answer first, then only the detail required to act.
-
