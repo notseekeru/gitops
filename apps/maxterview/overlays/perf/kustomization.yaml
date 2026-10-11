@@ -10,3 +10,4 @@ resources:
 - ../prod
 patches:
 - path: env.yaml
+- path: ingress.yaml
