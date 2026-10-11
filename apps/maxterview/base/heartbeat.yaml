@@ -1,0 +1,33 @@
+# The pulse the `pipeline silent` rule reads: one request a minute to the app's instrumented route.
+#
+# The app's own kubelet probes fetch /api/health, which is exempt from logging, sampling and spans, so
+# between user requests nothing arrives at all and "the export path died" is indistinguishable from
+# "nobody used the app". This request is logged and sampled like any other, so missing data becomes a
+# real signal. Requests are identical to a user's GET, minus the identity.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: maxterview-heartbeat
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  ttlSecondsAfterFinished: 120
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: heartbeat
+              image: curlimages/curl:8.22.0
+              command: ["curl"]
+              args: ["-sf", "-o", "/dev/null", "--max-time", "5", "http://maxterview-backend:8000/api/ping"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  memory: 64Mi

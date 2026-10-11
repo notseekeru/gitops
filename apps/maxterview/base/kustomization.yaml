@@ -8,5 +8,6 @@ resources:
 - backend.yaml
 - frontend.yaml
 - migration-job.yaml
+- heartbeat.yaml
 - ingress.yaml
 - alloy.yaml
