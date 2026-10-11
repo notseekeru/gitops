@@ -8,10 +8,10 @@ resources:
 images:
 - name: ghcr.io/notseekeru/maxterview_backend
   newName: ghcr.io/notseekeru/maxterview_backend
-  newTag: b0c9aa9a4049db5db1664630169151d71d96c3e6
+  newTag: 1a20eb46c7ebb4c29b85798de4cf9c5d9b8330d0
 - name: ghcr.io/notseekeru/maxterview_frontend
   newName: ghcr.io/notseekeru/maxterview_frontend
-  newTag: b0c9aa9a4049db5db1664630169151d71d96c3e6
+  newTag: 1a20eb46c7ebb4c29b85798de4cf9c5d9b8330d0
 # APP_ENV=production + the Maya return URL. The secret name stays the base default
 # (`maxterview-secrets`, created by `make apply MOD=k3s`).
 patches:
