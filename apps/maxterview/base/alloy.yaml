@@ -209,12 +209,14 @@ data:
     // scrape took 3259 of them and the gateway started rejecting whole batches, app metrics included.
     // The families below are the ones a panel or a rule reads; add here to add a series. The root
     // cgroup (`id="/"`) inside them is the node itself, so these also carry node CPU, memory and disk.
+    // `up` and `scrape_*` are in the list because this scrape is otherwise blind to its own failure:
+    // without them a dead scrape blanks the rules that read it, and NoData reads as healthy.
     prometheus.relabel "containers_keep" {
       forward_to = [otelcol.receiver.prometheus.scraped.receiver]
 
       rule {
         source_labels = ["__name__"]
-        regex         = "container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_fs_usage_bytes|container_fs_limit_bytes|container_fs_inodes_free|container_fs_inodes_total"
+        regex         = "container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_fs_usage_bytes|container_fs_limit_bytes|container_fs_inodes_free|container_fs_inodes_total|up|scrape_.*"
         action        = "keep"
       }
     }
@@ -265,7 +267,7 @@ spec:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
-        maxterview/config-hash: "03ecc9ec70a0"
+        maxterview/config-hash: "869e4ccb9a8c"
     spec:
       serviceAccountName: maxterview-alloy
       # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
