@@ -191,20 +191,9 @@ data:
       password = sys.env("LOKI_TOKEN")
     }
 
-    // Saturation, part one: the kubelet's own exposition carries node and per-container usage.
-    // One node, so its address is written here; a second node means discovery instead. The address is
-    // the InternalIP the serving certificate already lists, and the token is the pod's own.
-    prometheus.scrape "kubelet" {
-      targets           = [{"__address__" = "192.168.100.6:10250"}]
-      scheme            = "https"
-      metrics_path      = "/metrics"
-      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-      tls_config {
-        ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-      }
-      forward_to = [otelcol.receiver.prometheus.scraped.receiver]
-    }
-
+    // Saturation, part one: the kubelet's cadvisor carries per-container usage. One node, so its
+    // address is written here; a second node means discovery instead. The address is the InternalIP
+    // the serving certificate already lists, and the token is the pod's own.
     prometheus.scrape "containers" {
       targets           = [{"__address__" = "192.168.100.6:10250"}]
       scheme            = "https"
@@ -213,7 +202,20 @@ data:
       tls_config {
         ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
       }
+      forward_to = [prometheus.relabel.containers_keep.receiver]
+    }
+
+    // cAdvisor exposes 66 families and the tenant caps active series at 15000: unfiltered, this one
+    // scrape took 3259 of them and the gateway started rejecting whole batches, app metrics included.
+    // The two families below are the ones a panel or a rule reads; add here to add a series.
+    prometheus.relabel "containers_keep" {
       forward_to = [otelcol.receiver.prometheus.scraped.receiver]
+
+      rule {
+        source_labels = ["__name__"]
+        regex         = "container_cpu_usage_seconds_total|container_memory_working_set_bytes"
+        action        = "keep"
+      }
     }
 
     // Saturation, part two: the pod state the kubelet cannot report, restarts and declared limits.
@@ -262,7 +264,7 @@ spec:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
-        maxterview/config-hash: "a38de91a50c8"
+        maxterview/config-hash: "975bb044d586"
     spec:
       serviceAccountName: maxterview-alloy
       # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
