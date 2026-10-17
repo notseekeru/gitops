@@ -216,8 +216,16 @@ data:
 
       rule {
         source_labels = ["__name__"]
-        regex         = "container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_fs_usage_bytes|container_fs_limit_bytes|container_fs_inodes_free|container_fs_inodes_total|up|scrape_.*"
+        regex         = "container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_memory_rss|container_fs_usage_bytes|container_fs_limit_bytes|container_fs_inodes_free|container_fs_inodes_total|up|scrape_.*"
         action        = "keep"
+      }
+
+      // rss is the anonymous memory, the part the kernel cannot reclaim, so it is the honest pressure
+      // figure against node capacity. Keeping only the root cgroup's leaves one series instead of 62.
+      rule {
+        source_labels = ["__name__", "id"]
+        regex         = "container_memory_rss;/.+"
+        action        = "drop"
       }
     }
 
@@ -267,7 +275,7 @@ spec:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
-        maxterview/config-hash: "869e4ccb9a8c"
+        maxterview/config-hash: "89046cc97f5e"
     spec:
       serviceAccountName: maxterview-alloy
       # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
