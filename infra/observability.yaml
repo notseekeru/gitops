@@ -19,9 +19,10 @@ kind: ClusterRole
 metadata:
   name: kube-state-metrics
 rules:
-  # The deployment enables the pods collector only, so only pods is granted. Widen both together.
+  # The deployment enables the pods collector, plus nodes for capacity and allocatable, so node
+  # saturation has a denominator. Widen both together.
   - apiGroups: [""]
-    resources: ["pods"]
+    resources: ["pods", "nodes"]
     verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -58,7 +59,7 @@ spec:
         - name: kube-state-metrics
           image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
           args:
-            - --resources=pods
+            - --resources=pods,nodes
             - --port=8080
             - --telemetry-port=8081
           ports:
