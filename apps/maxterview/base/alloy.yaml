@@ -37,6 +37,30 @@ subjects:
   - kind: ServiceAccount
     name: maxterview-alloy
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: maxterview-alloy-nodes
+rules:
+  # The SubjectAccessReview the kubelet itself runs for /metrics and /metrics/cadvisor. Nothing here
+  # can list objects, read a Secret or write anything.
+  - apiGroups: [""]
+    resources: ["nodes/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: maxterview-alloy-nodes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maxterview-alloy-nodes
+subjects:
+  - kind: ServiceAccount
+    name: maxterview-alloy
+    namespace: maxterview
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -166,6 +190,45 @@ data:
       username = sys.env("OTLP_USER")
       password = sys.env("LOKI_TOKEN")
     }
+
+    // Saturation, part one: the kubelet's own exposition carries node and per-container usage.
+    // One node, so its address is written here; a second node means discovery instead. The address is
+    // the InternalIP the serving certificate already lists, and the token is the pod's own.
+    prometheus.scrape "kubelet" {
+      targets           = [{"__address__" = "192.168.100.6:10250"}]
+      scheme            = "https"
+      metrics_path      = "/metrics"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config {
+        ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      }
+      forward_to = [otelcol.receiver.prometheus.scraped.receiver]
+    }
+
+    prometheus.scrape "containers" {
+      targets           = [{"__address__" = "192.168.100.6:10250"}]
+      scheme            = "https"
+      metrics_path      = "/metrics/cadvisor"
+      bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      tls_config {
+        ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      }
+      forward_to = [otelcol.receiver.prometheus.scraped.receiver]
+    }
+
+    // Saturation, part two: the pod state the kubelet cannot report, restarts and declared limits.
+    prometheus.scrape "pods_state" {
+      targets    = [{"__address__" = "kube-state-metrics.observability.svc:8080"}]
+      forward_to = [otelcol.receiver.prometheus.scraped.receiver]
+    }
+
+    // Scraped Prometheus text joins the app's own metrics at the batch processor, so both leave
+    // through the one exporter that holds the write credential.
+    otelcol.receiver.prometheus "scraped" {
+      output {
+        metrics = [otelcol.processor.batch.apps.input]
+      }
+    }
 ---
 apiVersion: v1
 kind: Service
@@ -199,7 +262,7 @@ spec:
         # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
         # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
-        maxterview/config-hash: "3db2659696bc"
+        maxterview/config-hash: "a38de91a50c8"
     spec:
       serviceAccountName: maxterview-alloy
       # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
