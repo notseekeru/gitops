@@ -11,3 +11,4 @@ resources:
 patches:
 - path: env.yaml
 - path: ingress.yaml
+- path: service.yaml
