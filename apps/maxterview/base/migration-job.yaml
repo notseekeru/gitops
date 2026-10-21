@@ -28,9 +28,9 @@ spec:
             - |
               set -eu
               # D12: the owner DSN, in its own Secret so the backend never holds it. Never run this from a laptop.
-              DSN="${MIGRATE_DATABASE_URL:-}"
+              DSN="${OWNER_DATABASE_URL:-}"
               if [ -z "$DSN" ]; then
-                echo "FATAL: MIGRATE_DATABASE_URL is not set in maxterview-owner-secrets" >&2
+                echo "FATAL: OWNER_DATABASE_URL is not set in maxterview-owner-secrets" >&2
                 exit 1
               fi
               echo "applying migrations to ${DSN##*@}"
