@@ -30,7 +30,7 @@ spec:
               # D12: the owner DSN, in its own Secret so the backend never holds it. Never run this from a laptop.
               DSN="${MIGRATE_DATABASE_URL:-}"
               if [ -z "$DSN" ]; then
-                echo "FATAL: MIGRATE_DATABASE_URL is not set in maxterview-migrate-secrets" >&2
+                echo "FATAL: MIGRATE_DATABASE_URL is not set in maxterview-owner-secrets" >&2
                 exit 1
               fi
               echo "applying migrations to ${DSN##*@}"
@@ -38,7 +38,7 @@ spec:
               exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
           envFrom:
             - secretRef:
-                name: maxterview-migrate-secrets
+                name: maxterview-owner-secrets
           resources:
             requests:
               memory: "64Mi"
