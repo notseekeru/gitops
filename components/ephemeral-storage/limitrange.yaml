@@ -4,11 +4,9 @@ metadata:
   name: ephemeral-storage
 spec:
   limits:
-    # Nodefs is one filesystem shared with kubelet: a pod that writes without a request is
-    # ranked as a zero consumer and evicted last-ish, but nothing bounds it. On 2026-10-05 a
-    # 24G write outside the cluster pushed nodefs under the kubelet floor and DiskPressure
-    # evicted every pod on the node, ArgoCD included. defaultRequest puts every container in
-    # the eviction ranking; default caps growth. max rejects a pod that would repeat it.
+    # nodefs is shared with kubelet: a container with no request ranks as a zero consumer and is
+    # evicted last, and nothing bounds it. defaultRequest puts it in the ranking, default caps
+    # growth, max rejects a pod that would repeat the outage.
     - type: Container
       defaultRequest:
         ephemeral-storage: 64Mi

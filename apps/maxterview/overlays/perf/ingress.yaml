@@ -3,7 +3,6 @@ kind: Ingress
 metadata:
   name: maxterview-ingress
   annotations:
-    # The sweep's ramp crosses the base 30/s almost immediately, and every level after stops there.
-    # The app's own limiter (`RATE_LIMIT`) is the check that stays in the measured path.
+    # The ingress cap would stop the sweep at its first level; the app's own limiter stays in the path.
     nginx.ingress.kubernetes.io/limit-rps: "1000000"
     nginx.ingress.kubernetes.io/limit-burst: "1000000"

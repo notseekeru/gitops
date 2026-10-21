@@ -1,10 +1,3 @@
-# Log pipeline (M13 tier 2) plus the OTLP receiver the backend exports to (M13 tier 3): the app's
-# stdout and its spans/metrics all leave through this pod.
-#
-# One Deployment, not a DaemonSet: loki.source.kubernetes tails through the Kubernetes API, so this
-# needs no hostPath, no node filesystem and no privileged container — just pods list/watch plus
-# pods/log get in this namespace. The Grafana write credential lives here and nowhere else; the app
-# itself never holds one.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -15,12 +8,9 @@ kind: Role
 metadata:
   name: maxterview-alloy
 rules:
-  # discovery.kubernetes (role=pod) lists and watches pods in this namespace only (see the
-  # namespaces block in the config below), and loki.source.kubernetes reads their logs via the API.
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
-  # Reading container logs. Nothing here can read Secrets or write anything.
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
@@ -42,8 +32,7 @@ kind: ClusterRole
 metadata:
   name: maxterview-alloy-nodes
 rules:
-  # The SubjectAccessReview the kubelet itself runs for /metrics and /metrics/cadvisor. Nothing here
-  # can list objects, read a Secret or write anything.
+  # The kubelet's own SubjectAccessReview path; not a grant to read node objects.
   - apiGroups: [""]
     resources: ["nodes/metrics"]
     verbs: ["get"]
@@ -67,18 +56,10 @@ metadata:
   name: maxterview-alloy
 data:
   config.alloy: |
-    // maxterview pod logs -> Grafana Cloud Loki (M13 tier 2).
-    //
-    // Tails through the Kubernetes API (loki.source.kubernetes), so there is no hostPath, no privileged
-    // container and no node filesystem: Alloy only needs pods list/watch and pods/log get in this
-    // namespace. Rediscovery scope is what keeps it cheap — a DaemonSet watching every pod on the node
-    // is the documented 3 GB/pod footgun.
-
     discovery.kubernetes "pods" {
       role = "pod"
 
-      // Namespaced discovery: the Role grants pods list/watch in THIS namespace only, and discovery
-      // lists cluster-wide by default — without this a namespaced Role yields zero targets (403).
+      // discovery lists cluster-wide by default; without this a namespaced Role yields zero targets (403).
       namespaces {
         own_namespace = true
       }
@@ -87,17 +68,14 @@ data:
     discovery.relabel "pods" {
       targets = discovery.kubernetes.pods.targets
 
-      // Skip finished pods. A Completed Job pod (the migration) has no live stream, and tailing it
-      // through the API re-opens the closed stream in a hot loop (~2/s) forever.
-      // `drop` on the finished phases rather than `keep` on Running, so a missing label can never
-      // silently drop every target.
+      // A Completed pod's stream re-opens in a hot loop forever; drop on phase, not keep on Running,
+      // so a missing label cannot drop every target.
       rule {
         source_labels = ["__meta_kubernetes_pod_phase"]
         regex         = "Succeeded|Failed"
         action        = "drop"
       }
 
-      // Namespace is the env proxy: the namespace IS the environment (maxterview = prod).
       rule {
         source_labels = ["__meta_kubernetes_namespace"]
         target_label  = "namespace"
@@ -113,7 +91,6 @@ data:
         target_label  = "container"
       }
 
-      // app=maxterview-backend / maxterview-frontend / maxterview-alloy, from the pod label.
       rule {
         source_labels = ["__meta_kubernetes_pod_label_app"]
         target_label  = "app"
@@ -127,12 +104,8 @@ data:
 
     loki.write "cloud" {
       endpoint {
-        // https://logs-prod-<region>.grafana.net/loki/api/v1/push — Grafana Cloud's logs endpoint.
         url = sys.env("LOKI_URL")
         basic_auth {
-          // Grafana Cloud uses the stack's numeric instance ID as the user, and the access-policy
-          // token as the password. That token carries logs:write, metrics:write and traces:write and
-          // is the one credential behind this whole pipeline.
           username = sys.env("LOKI_USER")
           password = sys.env("LOKI_TOKEN")
         }
@@ -144,13 +117,7 @@ data:
       }
     }
 
-    // backend/src/app/telemetry.py -> here -> Grafana Cloud Tempo and Prometheus via the OTLP
-    // gateway, which routes by signal. HTTP only: the Python exporter speaks HTTP/protobuf, so there
-    // is no second listen address to own.
-    //
-    // In-cluster and unauthenticated on purpose: the receiver is reachable only through the ClusterIP
-    // Service below, and the app is not allowed near the Grafana credential, so the namespace is the
-    // trust boundary, exactly as it already is for the log tailing.
+    // Unauthenticated on purpose: ClusterIP only, and the app never holds the Grafana credential.
     otelcol.receiver.otlp "apps" {
       http {
         endpoint = "0.0.0.0:4318"
@@ -162,7 +129,6 @@ data:
       }
     }
 
-    // One export per batch, not one per span: a chat turn closes a handful of spans in a burst.
     otelcol.processor.batch "apps" {
       timeout = "5s"
 
@@ -174,7 +140,6 @@ data:
 
     otelcol.exporter.otlphttp "cloud" {
       client {
-        // https://otlp-gateway-<zone>.grafana.net/otlp
         endpoint = sys.env("OTLP_URL")
         auth     = otelcol.auth.basic.cloud.handler
         timeout  = "10s"
@@ -182,19 +147,13 @@ data:
     }
 
     otelcol.auth.basic "cloud" {
-      // The stack's tenancy id, not the Loki instance id. Grafana Cloud gives each legacy service its
-      // own basic-auth user (logs 1793703, traces 1788004, metrics 3596064 on this stack) and the OTLP
-      // gateway a different one again, shared with profiles and insights. Reusing LOKI_USER here is a
-      // 401 on every batch with no other symptom: the receiver accepts, the exporter drops, panels
-      // stay empty. One token covers all of it; only the username differs.
+      // The gateway wants its own username, not the Loki one: reusing LOKI_USER is a 401 on every
+      // batch with no other symptom. The token is the same.
       username = sys.env("OTLP_USER")
       password = sys.env("LOKI_TOKEN")
     }
 
-    // Saturation: the kubelet's cadvisor carries per-container usage, the limits those containers were
-    // given, OOM events, and the node's own capacity. One node, so its address is written here; a second
-    // node means discovery instead. The address is the InternalIP the serving certificate already lists,
-    // and the token is the pod's own.
+    // One node, so the address is written here; a second node means discovery instead.
     prometheus.scrape "containers" {
       targets           = [{"__address__" = "192.168.100.6:10250"}]
       scheme            = "https"
@@ -206,12 +165,8 @@ data:
       forward_to = [prometheus.relabel.containers_keep.receiver]
     }
 
-    // cAdvisor exposes far more families than anything here reads, and the tenant has an active-series
-    // cap: unfiltered, this one scrape alone crosses it and the gateway then rejects whole batches, app
-    // metrics included. These are the names a panel or a rule reads; add here to add a series. The root
-    // cgroup (`id="/"`) inside them is the node itself, so the same scrape carries node CPU, memory
-    // and disk. `up` is here because this scrape is otherwise blind to its own failure: without it a
-    // dead scrape blanks the rules that read it, and NoData reads as healthy.
+    // Unfiltered, this scrape alone crosses the tenant's active-series cap and the gateway then
+    // rejects whole batches. The root cgroup (`id="/"`) is the node itself; `up` catches a dead scrape.
     prometheus.relabel "containers_keep" {
       forward_to = [otelcol.receiver.prometheus.scraped.receiver]
 
@@ -221,8 +176,7 @@ data:
         action        = "keep"
       }
 
-      // rss is the anonymous memory, the part the kernel cannot reclaim, so it is the honest pressure
-      // figure against node capacity. Keeping only the root cgroup's leaves one series instead of 62.
+      // rss is the memory the kernel cannot reclaim; keep the root cgroup's only.
       rule {
         source_labels = ["__name__", "id"]
         regex         = "container_memory_rss;/.+"
@@ -230,8 +184,6 @@ data:
       }
     }
 
-    // Scraped Prometheus text joins the app's own metrics at the batch processor, so both leave
-    // through the one exporter that holds the write credential.
     otelcol.receiver.prometheus "scraped" {
       output {
         metrics = [otelcol.processor.batch.apps.input]
@@ -246,8 +198,7 @@ spec:
   selector:
     app: maxterview-alloy
   ports:
-    # ClusterIP only, and only this port: 12345 is the Alloy UI and has no business being reachable
-    # from another pod.
+    # Not 12345: that is the Alloy UI.
     - name: otlp-http
       port: 4318
       targetPort: 4318
@@ -267,17 +218,13 @@ spec:
       labels:
         app: maxterview-alloy
       annotations:
-        # Rolls the pod whenever the config below changes: Argo updating a ConfigMap does not
-        # restart anything, and Alloy reads its config at startup. Bump this hash with the config:
+        # Editing config.alloy restarts nothing on its own. Bump this with it:
         # sed -n '/^  config\.alloy: |/,/^---/p' apps/maxterview/base/alloy.yaml | sha256sum | cut -c1-12
         maxterview/config-hash: "0c5fbfdcabec"
     spec:
       serviceAccountName: maxterview-alloy
-      # CoreDNS answers SERVFAIL for some external names (measured 2026-09-25: `lookup
-      # otlp-gateway-prod-ap-southeast-1.grafana.net on 10.43.0.10:53: server misbehaving`, 103
-      # dropped OTLP batches in one hour). CoreDNS stays first so in-cluster names still resolve;
-      # the public resolver is only reached once it fails. Nothing under dnsPolicy: None is
-      # inherited, so the search list and ndots repeat the defaults the kubelet would have written.
+      # CoreDNS answers SERVFAIL for some external names, so the public resolver is the fallback.
+      # dnsPolicy: None inherits nothing: the search list and ndots below repeat the kubelet defaults.
       dnsPolicy: None
       dnsConfig:
         nameservers:
@@ -303,9 +250,6 @@ spec:
               containerPort: 12345
             - name: otlp-http
               containerPort: 4318
-          # The write credential is a Secret created by Terraform from Infisical (`make apply
-          # MOD=k3s`), same pattern as maxterview-secrets. Keys are the env-var names the config
-          # reads via sys.env().
           env:
             - name: LOKI_URL
               valueFrom:
@@ -327,9 +271,7 @@ spec:
                 secretKeyRef:
                   name: maxterview-logs
                   key: OTLP_URL
-            # Not in the Secret on purpose: an instance ID is not a credential (it sits beside every
-            # datasource in the portal), and keeping it in the manifest means one push turns the
-            # exporter on with no terraform-then-gitops ordering to get wrong.
+            # Not a credential, so it stays in the manifest: one push turns the exporter on.
             - name: OTLP_USER
               value: "1835920"
           readinessProbe:
@@ -354,7 +296,7 @@ spec:
           configMap:
             name: maxterview-alloy
         - name: storage
-          # The exporters' WAL grows while Grafana is unreachable; unbounded it lands on nodefs
-          # beside kubelet's own eviction threshold. Same ceiling as the LimitRange default.
+          # The exporter WAL grows while Grafana is unreachable; unbounded it lands on nodefs.
+          # Same ceiling as the LimitRange default.
           emptyDir:
             sizeLimit: 512Mi

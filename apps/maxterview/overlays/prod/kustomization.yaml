@@ -1,7 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Production (maxterview.seekeru.tech) — the only env that takes real money and real users.
-# ArgoCD: apps-of-apps/maxterview.yaml points here. CD bumps the tags on every green main.
 namespace: maxterview
 resources:
 - ../../base
@@ -12,7 +10,5 @@ images:
 - name: ghcr.io/notseekeru/maxterview_frontend
   newName: ghcr.io/notseekeru/maxterview_frontend
   newTag: c57530191c788f6531d4f5d6eaa8ca3569309a7b
-# APP_ENV=production + the Maya return URL. The secret name stays the base default
-# (`maxterview-secrets`, created by `make apply MOD=k3s`).
 patches:
 - path: env.yaml

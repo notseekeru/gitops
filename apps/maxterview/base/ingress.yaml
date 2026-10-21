@@ -28,7 +28,6 @@ spec:
     - host: maxterview.seekeru.tech
       http:
         paths:
-          # The app serves its routes under /api itself (API_PREFIX) — no rewrite here.
           - path: /api
             pathType: Prefix
             backend:

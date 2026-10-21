@@ -3,9 +3,6 @@ kind: Job
 metadata:
   name: maxterview-migrate
   annotations:
-    # PreSync: the schema lands BEFORE the new pods roll, so a code/schema mismatch never
-    # serves traffic. Deleted before the next sync (not on success) so the last run's logs
-    # survive for debugging; a failed hook fails the whole sync.
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
@@ -20,21 +17,18 @@ spec:
         - name: ghcr-login
       containers:
         - name: migrate
-          # Same image as the app (the kustomize `images:` transformer retags this too), so the
-          # migrations shipped in it always match the code being deployed.
           image: ghcr.io/notseekeru/maxterview_backend:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -eu
-              # D12: the owner DSN, in its own Secret so the backend never holds it. Never run this from a laptop.
+              # Owner DSN: never wire this into the backend.
               DSN="${OWNER_DATABASE_URL:-}"
               if [ -z "$DSN" ]; then
                 echo "FATAL: OWNER_DATABASE_URL is not set in maxterview-owner-secrets" >&2
                 exit 1
               fi
               echo "applying migrations to ${DSN##*@}"
-              # Direct venv binary (same style as the prod CMD) — no `uv run` env verification in-cluster.
               exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
           envFrom:
             - secretRef:

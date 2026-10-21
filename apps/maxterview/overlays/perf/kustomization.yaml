@@ -1,10 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# The perf window (SRE.md `## Perf window`): the prod app patched in place, never a second Deployment,
-# because a second pod on one node fights the prod pod for the same four cores.
+# Patches prod in place: never a second Deployment, two pods on one node fight for the same cores.
 #
-# Nothing syncs this. ArgoCD's `apps-of-apps/maxterview.yaml` points at overlays/prod: swap that path
-# for the duration, or `kubectl apply -k apps/maxterview/overlays/perf`, then point it back.
+# Nothing syncs this. ArgoCD points at overlays/prod: swap that path for the duration, or
+# `kubectl apply -k apps/maxterview/overlays/perf`, then point it back.
 namespace: maxterview
 resources:
 - ../prod
