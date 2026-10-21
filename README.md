@@ -89,7 +89,7 @@ not manually. The ones consumed by workloads in this repo:
   with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
   `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
   (commit `6727cf8`); the PayMongo pair now carries the live key + the prod `payment.paid` endpoint's secret.
-- `maxterview-migrate-secrets` (`maxterview`) — the owner Neon DSN, mounted only by the PreSync migration Job
+- `maxterview-migrate-secrets` (`maxterview`): the owner Neon DSN, mounted only by the PreSync migration Job
   so the backend pod never holds a credential that can `DROP` (PLAN.md D12).
 
 Terraform also creates `repo-secret` (`argocd`) — the HTTPS credentials ArgoCD
