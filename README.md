@@ -228,18 +228,17 @@ PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.d
 ## Forcing a sync (outside of git)
 
 Auto-sync applies every change pushed to `main`, so this is for a stuck controller or a manual
-rollback. Two different operations, and only one works from `kubectl`:
+rollback. Two different operations, and only one works from `kubectl`.
 
-- **Refresh** (re-read the repo, redo the comparison) works from `kubectl`:
+A refresh re-reads the repo and redoes the comparison:
 
 ```bash
 kubectl annotate application maxterview -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-- **A sync operation** does not. ArgoCD 3 removed `spec.operation` from the Application CRD and
-  ignores the `argocd.argoproj.io/operation` annotation, so a `kubectl patch` cannot start one.
-  Use the API or the CLI
-  ([upgrade notes](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/)):
+A sync operation does not work from `kubectl`. ArgoCD 3 removed `spec.operation` from the
+Application CRD and ignores the `argocd.argoproj.io/operation` annotation, so use the API or the
+CLI ([upgrade notes](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/)):
 
 ```bash
 # From the flake dev shell, after `argocd login`
@@ -250,9 +249,9 @@ curl -X POST -H "Authorization: Bearer $ARGOCD_TOKEN" -H 'Content-Type: applicat
   -d '{"name":"maxterview"}' "$ARGOCD_URL/api/v1/applications/maxterview/sync"
 ```
 
-**A hook-only change never starts a sync.** ArgoCD leaves hook resources out of the sync
-comparison, so editing `migration-job.yaml` alone keeps the app `Synced` and the PreSync job
-unrun until the next real sync, such as an image bump. Force one when the hook itself changed.
+A hook-only change never starts a sync: ArgoCD leaves hook resources out of the comparison, so
+editing `migration-job.yaml` alone keeps the app `Synced` and the PreSync job unrun until the next
+real sync, such as an image bump. Force one when the hook itself changed.
 
 ### Sync status
 
