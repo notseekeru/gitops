@@ -14,108 +14,32 @@ The repo uses ArgoCD **App of Apps**:
 ## Prerequisites
 
 The only hard requirement is `kubectl` pointed at the cluster Terraform provisioned.
-The following are **optional** conveniences:
-
-- **Nix** + [flakes](https://nixos.wiki/wiki/Flakes): optional dev shell that adds `kubectl`, `argocd`, `infisical` ([flake](./flake.nix)).
-- **direnv**: auto-loads that shell and sets `KUBECONFIG=~/kubeconfig` on `cd` (the path Terraform writes).
-
-```bash
-direnv allow   # optional: dev shell + sets KUBECONFIG
-```
-
-Most operations here use `kubectl` only (see [Forcing a sync](#forcing-a-sync-outside-of-git));
-the `argocd` CLI is listed in the flake but is not required.
-
-## Layout
-
-```
-├── apps-of-apps/
-│   ├── portfolio.yaml      # ArgoCD App → apps/portfolio
-│   ├── diagram.yaml        # ArgoCD App → apps/diagram
-│   ├── maxterview.yaml     # ArgoCD App → apps/maxterview/overlays/prod
-│   └── infra.yaml          # ArgoCD App → infra
-├── apps/
-│   ├── portfolio/          # Portfolio app: React frontend (static)
-│   ├── diagram/            # Diagram app  : Node backend + React frontend
-│   └── maxterview/         # Maxterview   : FastAPI backend + React frontend
-│       ├── base/           #   env-neutral: Deployments, Services, Ingress, PreSync migrate Job
-│       └── overlays/prod/
-├── infra/
-│   └── cloudflared.yaml    # Cloudflare Tunnel client (QUIC)
-├── app.yaml                # ArgoCD root Application: applied by Terraform
-├── kustomization.yaml      # Aggregates the Apps-of-Apps children (for `kubectl kustomize .` preview)
-├── flake.nix               # Nix flake for dev shell (kubectl, argocd)
-├── .envrc                  # direnv: loads flake + sets KUBECONFIG
-└── README.md
-```
+`direnv allow` is optional: it loads the flake dev shell and sets `KUBECONFIG=~/kubeconfig`, the path Terraform writes.
 
 ## Ingress
-
-| Domain                    | /api →                      | / →                            |
-| ------------------------- | --------------------------- | ------------------------------ |
-| `portfolio.seekeru.tech`  | _(no API route)_            | `portfolio-prod-frontend:8080` |
-| `diagram.seekeru.tech`    | `diagram-prod-backend:3100` | `diagram-prod-frontend:8080`   |
-| `maxterview.seekeru.tech` | `maxterview-backend:8000`   | `maxterview-frontend:8080`     |
-
-Backend refs are namespace-local, so every app's Ingress lives in the app's own path beside its Service
-(`apps/<app>/ingress.yaml`); `infra/` holds only the tunnel.
 
 Namespaces: `portfolio`, `diagram`, `maxterview`, Terraform-created, one per app.
 `default` is left to `cloudflared`.
 
-maxterview renders from kustomize base + `overlays/prod`; the overlay patches namespace, host, env and image
-tags, so a second env is a new overlay plus its own Terraform-created namespace + secrets (see the Terraform
-repo's ADR 0003 for what that costs).
-
-### Ingress annotations
-
-- **CSP:** strict Content-Security-Policy allowing self, Cloudflare Insights, Google Fonts
-- **CORS:** allows `seekeru.tech` and `*.seekeru.tech` origins
-- **Rate limit:** 30 req/s, burst 20
-- **Proxy timeouts:** connect 10s, send 30s, read 60s
-- **Body size:** 10 MB max
+Backend refs are namespace-local, so every app's Ingress lives in the app's own path beside its Service; `infra/` holds only the tunnel.
 
 ## Secrets
 
 All Kubernetes secrets are **created by the Terraform apply** (from Infisical values):
-not manually. The ones consumed by workloads in this repo:
+not manually. Do **not** create them with `kubectl`; Terraform owns them.
+Manage their values in Infisical and re-run `make apply MOD=k3s` in the Terraform repo.
 
-- `cloudflared-token` (`default`): Cloudflare Tunnel token.
-- `ghcr-login` (`default`, `portfolio`, `diagram`, `maxterview`): GHCR pull secret. **Namespace-local**:
-  `imagePullSecrets` never cross namespaces and the GHCR packages are private, so each app namespace needs its
-  own copy (`infra/k3s` creates every copy).
-- `diagram-secrets` (`diagram`): API key + PostgreSQL connection string.
-- `maxterview-secrets` (`maxterview`): Neon `DATABASE_URL` + Clerk/LLM/BYOK/PayMongo keys, injected wholesale
-  with `envFrom`: **keys must be UPPERCASE env names** (`DATABASE_URL`, `CLERK_JWKS_URL`, `LLM_API_KEY`,
-  `BYOK_ENCRYPTION_KEY`, `PAYMONGO_SECRET_KEY`, …) or the backend pod will not schedule. Created by the Terraform `k3s` module
-  (commit `6727cf8`); the PayMongo pair now carries the live key + the prod `payment.paid` endpoint's secret.
-- `maxterview-owner-secrets` (`maxterview`): the owner Neon DSN, mounted only by the PreSync migration Job
-  so the backend pod never holds a credential that can `DROP` (PLAN.md D12).
+- `ghcr-login`: **Namespace-local**: `imagePullSecrets` never cross namespaces and the GHCR packages are private, so each app namespace needs its own copy (`infra/k3s` creates every copy).
+- `maxterview-secrets`: injected wholesale with `envFrom`, so **keys must be UPPERCASE env names** or the backend pod will not schedule.
+- `maxterview-owner-secrets`: the owner Neon DSN, mounted only by the PreSync migration Job so the backend pod never holds a credential that can `DROP`.
+- `repo-secret` (`argocd`): the HTTPS credentials ArgoCD uses to pull this git repo. Terraform creates it, and ArgoCD cannot sync without it.
 
-Terraform also creates `repo-secret` (`argocd`): the HTTPS credentials ArgoCD
-uses to pull this git repo. It is not consumed by workloads but is required for ArgoCD
-to sync.
-
-Manage their values in Infisical and re-run `make apply MOD=k3s` in the
-Terraform repo. Do **not** create them with `kubectl`; Terraform owns them.
-
-## Image versions
+## Images
 
 Images are pinned to immutable SHA tags in each app's `kustomization.yaml` (never `latest`),
-which enables exact rollback. As of writing:
-
-| App        | Image                                    | Tag               |
-| ---------- | ---------------------------------------- | ----------------- |
-| portfolio  | `ghcr.io/notseekeru/portfolio-frontend`  | `00fe8ae…7952e`   |
-| diagram    | `ghcr.io/notseekeru/diagram_backend`     | `3e30429…9ab6d09` |
-| diagram    | `ghcr.io/notseekeru/diagram_frontend`    | `3e30429…9ab6d09` |
-| maxterview | `ghcr.io/notseekeru/maxterview_backend`  | `71cf439…a5e29c`  |
-| maxterview | `ghcr.io/notseekeru/maxterview_frontend` | `71cf439…a5e29c`  |
-
-**All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`). For each
-service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on
-the owning `apps/<app>/kustomization.yaml` and pushes the SHA bump. So deployments self
-package: this table drifts on every release; read the live SHAs from the files.
+which enables exact rollback. **All image tags auto-update via the CD pipeline** (CI → `workflow_run` on `main`):
+for each service in the CD matrix it builds the image, then a job runs `kustomize edit set image` on
+the owning `apps/<app>/kustomization.yaml` and pushes the SHA bump.
 
 ## How this repo gets applied
 
@@ -148,17 +72,7 @@ recovery or poking ArgoCD's cached state.
 ## Kill switch (per app)
 
 Each app's switch is its `resources:` list in `apps/<app>/kustomization.yaml`. Comment an
-entry out, commit, and ArgoCD prunes it (`prune: true`); uncomment to bring it back:
-
-```yaml
-# Kill switch: comment an entry out to prune it (see README).
-#- migration-job.yaml
-resources:
-  - backend.yaml
-  - frontend.yaml
-  - ingress.yaml
-images: ...
-```
+entry out, commit, and ArgoCD prunes it (`prune: true`); uncomment to bring it back.
 
 Comment one entry to drop a single workload. Commenting out **every** entry kills the whole
 app, but that needs one extra step, because the desired state is then empty and ArgoCD's
@@ -191,10 +105,10 @@ preview-only aggregator for `kubectl kustomize .`; `app.yaml` syncs the `apps-of
 directory, not that kustomization. Only `apps/<app>/kustomization.yaml` counts.
 
 A kill survives releases: the CD pipeline runs `kustomize edit set image` on exactly this
-file, and it does not re-enable commented entries (verified against kustomize 5.8.1). It does
-hoist them: on the next release, commented entries collect under the marker comment at the
-top of the file. Expect that reflow. A fully dark app stays dark through image bumps too: with
-no resources left there is nothing for a new revision to change.
+file, and it does not re-enable commented entries. It does hoist them: on the next release,
+commented entries collect under the marker comment at the top of the file. Expect that reflow.
+A fully dark app stays dark through image bumps too: with no resources left there is nothing
+for a new revision to change.
 
 Caveats:
 
@@ -235,10 +149,6 @@ A refresh re-reads the repo and redoes the comparison:
 ```bash
 kubectl annotate application maxterview -n argocd argocd.argoproj.io/refresh=hard --overwrite
 ```
-
-A sync operation does not work from `kubectl`. ArgoCD 3 removed `spec.operation` from the
-Application CRD and ignores the `argocd.argoproj.io/operation` annotation, so use the API or the
-CLI ([upgrade notes](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/2.14-3.0/)):
 
 ```bash
 # From the flake dev shell, after `argocd login`
