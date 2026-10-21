@@ -33,7 +33,7 @@ spec:
                 echo "FATAL: MIGRATE_DATABASE_URL is not set in maxterview-migrate-secrets" >&2
                 exit 1
               fi
-              echo "applying migrations to ${DSN%%@*}@<redacted>"
+              echo "applying migrations to ${DSN##*@}"
               # Direct venv binary (same style as the prod CMD) — no `uv run` env verification in-cluster.
               exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
           envFrom:
