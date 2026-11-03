@@ -6,9 +6,9 @@ resources:
 images:
 - name: ghcr.io/notseekeru/maxterview_backend
   newName: ghcr.io/notseekeru/maxterview_backend
-  newTag: bb01458f5049af1386f25b93680d3d3b5956ce7f
+  newTag: 86a3419648ed765664bf3f13fa194d493f3b3149
 - name: ghcr.io/notseekeru/maxterview_frontend
   newName: ghcr.io/notseekeru/maxterview_frontend
-  newTag: bb01458f5049af1386f25b93680d3d3b5956ce7f
+  newTag: 86a3419648ed765664bf3f13fa194d493f3b3149
 patches:
 - path: env.yaml
