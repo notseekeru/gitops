@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/notseekeru/gitops.git
-    path: apps/maxterview/overlays/perf
+    path: apps/maxterview/overlays/prod
     targetRevision: main
   destination:
     server: https://kubernetes.default.svc
