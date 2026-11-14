@@ -38,9 +38,9 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              memory: "256Mi"
+              memory: "512Mi"
             requests:
-              memory: "128Mi"
+              memory: "256Mi"
               cpu: "10m"
 ---
 apiVersion: v1
