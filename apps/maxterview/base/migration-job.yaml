@@ -29,7 +29,11 @@ spec:
                 exit 1
               fi
               echo "applying migrations to ${DSN##*@}"
-              exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
+              if [ -x /app/.venv/bin/yoyo ]; then
+                exec /app/.venv/bin/yoyo apply --no-config-file --batch --database "$DSN" /app/migrations
+              else
+                exec node /app/dist/scripts/migrate.js apply
+              fi
           envFrom:
             - secretRef:
                 name: maxterview-owner-secrets
