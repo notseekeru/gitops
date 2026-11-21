@@ -7,4 +7,5 @@ resources:
 - frontend.yaml
 - migration-job.yaml
 - ingress.yaml
+- traefik.yaml
 - alloy.yaml

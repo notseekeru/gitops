@@ -1,0 +1,48 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: headers
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  headers:
+    addVaryHeader: true
+    accessControlAllowCredentials: true
+    accessControlAllowOriginList:
+      - https://seekeru.tech
+    accessControlAllowOriginListRegex:
+      - ^https://[a-z0-9-]+\.seekeru\.tech$
+    accessControlAllowMethods:
+      - GET
+      - POST
+      - DELETE
+      - OPTIONS
+    accessControlAllowHeaders:
+      - Content-Type
+      - Authorization
+    customResponseHeaders:
+      Content-Security-Policy: "default-src 'self'; script-src 'self' https://cloudflareinsights.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://googleapis.com; img-src 'self' data:; font-src 'self' data: https://gstatic.com; connect-src 'self';"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: limits
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  rateLimit:
+    average: 30
+    burst: 20
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: timeouts
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  forwardingTimeouts:
+    dialTimeout: 10s
+    # LLM turns can sit long before the first byte; the SSE stream runs after it.
+    responseHeaderTimeout: 300s
+    idleConnTimeout: 90s

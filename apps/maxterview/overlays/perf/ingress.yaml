@@ -1,8 +1,0 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: maxterview-ingress
-  annotations:
-    # The ingress cap would stop the sweep at its first level; the app's own limiter stays in the path.
-    nginx.ingress.kubernetes.io/limit-rps: "1000000"
-    nginx.ingress.kubernetes.io/limit-burst: "1000000"

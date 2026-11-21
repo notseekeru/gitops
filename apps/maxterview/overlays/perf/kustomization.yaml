@@ -9,5 +9,5 @@ resources:
 - ../prod
 patches:
 - path: env.yaml
-- path: ingress.yaml
+- path: middleware.yaml
 - path: service.yaml

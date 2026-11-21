@@ -1,0 +1,8 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: limits
+spec:
+  rateLimit:
+    average: 1000000
+    burst: 1000000

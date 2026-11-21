@@ -5,6 +5,7 @@ components:
 - ../../components/ephemeral-storage
 resources:
 - ingress.yaml
+- traefik.yaml
 - frontend.yaml
 images:
 - name: ghcr.io/notseekeru/portfolio-frontend
