@@ -3,8 +3,8 @@ kind: Ingress
 metadata:
   name: maxterview-ingress
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: headers@kubernetescrd,limits@kubernetescrd
-    traefik.ingress.kubernetes.io/service.serverstransport: timeouts@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: maxterview-headers@kubernetescrd,maxterview-limits@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serverstransport: maxterview-timeouts@kubernetescrd
 
 spec:
   ingressClassName: traefik

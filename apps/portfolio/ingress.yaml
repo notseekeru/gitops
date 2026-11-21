@@ -3,8 +3,8 @@ kind: Ingress
 metadata:
   name: portfolio-ingress
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: headers@kubernetescrd,limits@kubernetescrd
-    traefik.ingress.kubernetes.io/service.serverstransport: timeouts@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: portfolio-headers@kubernetescrd,portfolio-limits@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serverstransport: portfolio-timeouts@kubernetescrd
 
 spec:
   ingressClassName: traefik
