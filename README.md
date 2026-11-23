@@ -1,6 +1,6 @@
 # gitops
 
-This repo holds the GitOps content for the `portfolio.seekeru.tech`, `diagram.seekeru.tech` and `maxterview.seekeru.tech` stack on Kubernetes. It is **not** the installer: cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
+This repo holds the GitOps content for the `portfolio.seekeru.tech` and `maxterview.seekeru.tech` stack on Kubernetes. It is **not** the installer: cluster bootstrap, the root Application, Kubernetes secrets, and the kubeconfig are all provisioned by Terraform (see the separate `terraform` repo).
 
 The repo uses ArgoCD **App of Apps**:
 
@@ -176,7 +176,7 @@ kubectl get deploy -A                     # workloads (`default` = the tunnel on
 
 ## Known trade-offs (accepted, not fixed)
 
-- **Probes are `tcpSocket`**: readiness/liveness only verify the port accepts TCP, not that the app actually serves HTTP. The diagram backend (`:3100`) has no `/health` route, so HTTP probes are deferred. Upgrade path: add `/health` to the backend, then swap all three deployments to `httpGet` probes, the two frontends (nginx, serves `/`) can be switched immediately regardless.
+- **Probes are `tcpSocket`**: readiness/liveness only verify the port accepts TCP, not that the app actually serves HTTP. The portfolio frontend is the last one; it serves `/`, so swapping it to `httpGet` is a one-line change.
 
 - **CORS `*.seekeru.tech` + CSP `'unsafe-inline'`**: the loosest security knobs in the stack. Fine for a personal deployment; tighten to explicit origins and nonces/hashes before adding third-party scripts or broadening exposure.
 
